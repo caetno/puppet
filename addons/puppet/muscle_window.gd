@@ -1,9 +1,104 @@
 @tool
 extends Window
 
-## Placeholder editor window for muscle configuration.
+## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
+
+const MuscleData = preload("res://addons/puppet/muscle_data.gd")
+const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+const HumanoidScene = preload("res://humanoid_example.tscn")
+
+var _profile: MuscleProfile = MuscleProfile.new()
+var _model: Node3D
+
+@onready var _list: VBoxContainer = $VBox/Main/Right/List
+@onready var _viewport: SubViewport = $VBox/Main/ViewportPane/SubViewport
+@onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
+
+var _dragging := false
 
 func _ready() -> void:
     title = "Humanoid Muscles"
-    size = Vector2(800, 600)
+    size = Vector2(1200, 600)
+    close_requested.connect(func(): hide())
+    _setup_picker()
+    _load_default_profile()
+    _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _load_model()
+    _populate_list()
+    _viewport.gui_input.connect(_on_viewport_input)
+
+func _unhandled_key_input(event: InputEvent) -> void:
+    if event.is_action_pressed("ui_cancel"):
+        hide()
+
+func _setup_picker() -> void:
+    _picker.base_type = "MuscleProfile"
+    _picker.edited_resource = _profile
+    _picker.resource_changed.connect(_on_profile_changed)
+
+func _on_profile_changed(res: Resource) -> void:
+    if res:
+        _profile = res
+        if _profile.muscles.is_empty():
+            _load_default_profile()
+    else:
+        _profile = MuscleProfile.new()
+        _load_default_profile()
+    _update_skeleton_path()
+    _populate_list()
+
+func _load_model() -> void:
+    for child in _viewport.get_children():
+        child.queue_free()
+    _model = HumanoidScene.instantiate()
+    _viewport.add_child(_model)
+    var cam := Camera3D.new()
+    cam.position = Vector3(0, 1.5, 3)
+    cam.look_at(Vector3.ZERO)
+    _viewport.add_child(cam)
+    _viewport.camera_3d = cam
+    var light := DirectionalLight3D.new()
+    light.rotation_degrees = Vector3(-45, -30, 0)
+    _viewport.add_child(light)
+    _update_skeleton_path()
+
+func _update_skeleton_path() -> void:
+    var skeleton := _model.get_node_or_null("Skeleton")
+    if skeleton:
+        _profile.skeleton = _model.get_path_to(skeleton)
+
+func _load_default_profile() -> void:
+    _profile.muscles.clear()
+    for muscle in MuscleData.DEFAULT_MUSCLES:
+        _profile.muscles[str(muscle["muscle_id"])] = muscle.duplicate(true)
+
+func _populate_list() -> void:
+    for child in _list.get_children():
+        child.queue_free()
+    for id in _profile.muscles.keys():
+        var data = _profile.muscles[id]
+        var row := HBoxContainer.new()
+        row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _list.add_child(row)
+        var label := Label.new()
+        label.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
+        label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        row.add_child(label)
+
+        var slider := HSlider.new()
+        slider.min_value = data.get("min_deg", -180.0)
+        slider.max_value = data.get("max_deg", 180.0)
+        slider.step = 1.0
+        slider.value = data.get("default_deg", 0.0)
+        slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        slider.value_changed.connect(func(v, id=id): _profile.muscles[id]["default_deg"] = v)
+        row.add_child(slider)
+
+func _on_viewport_input(event: InputEvent) -> void:
+    if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+        _dragging = event.pressed
+    elif event is InputEventMouseMotion and _dragging:
+        _model.rotate_y(-event.relative.x * 0.01)
+        _model.rotate_x(-event.relative.y * 0.01)
+
