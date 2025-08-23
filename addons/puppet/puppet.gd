@@ -28,8 +28,10 @@ func _on_button_pressed() -> void:
 
 func _update_button_visibility() -> void:
     var nodes := get_editor_interface().get_selection().get_selected_nodes()
-    var node: Node = nodes.size() > 0 ? nodes[0] : null
-    _button.visible = node is Skeleton3D and _has_humanoid_map(node)
-
-func _has_humanoid_map(skeleton: Skeleton3D) -> bool:
-    return skeleton.humanoid_bone_map != null
+    var node: Node = null
+    if nodes.size() > 0:
+        node = nodes[0]
+    if node is Skeleton3D:
+        _button.visible = true
+    else:
+        _button.visible = false
