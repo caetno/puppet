@@ -22,6 +22,7 @@ var _camera: Camera3D
 var _cam_distance := 3.0
 var _cam_rotation := Vector2.ZERO
 var _base_poses := {}
+var _warned_bones := {}
 
 func _ready() -> void:
     title = "Humanoid Muscles"
@@ -151,6 +152,7 @@ func _on_slider_changed(value: float, id: String) -> void:
 
 func _cache_bone_poses() -> void:
     _base_poses.clear()
+    _warned_bones.clear()
     var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
     if skeleton:
         for i in range(skeleton.get_bone_count()):
@@ -166,8 +168,16 @@ func _apply_all_muscles() -> void:
         var data = _profile.muscles[id]
         var bone_name: String = data.get("bone_ref", "")
         if not _base_poses.has(bone_name):
+            if not _warned_bones.has(bone_name):
+                push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
+                _warned_bones[bone_name] = true
             continue
         var bone_idx = skeleton.find_bone(bone_name)
+        if bone_idx == -1:
+            if not _warned_bones.has(bone_name):
+                push_warning("Unknown bone '%s' for muscle '%s'" % [bone_name, id])
+                _warned_bones[bone_name] = true
+            continue
         var base: Transform3D = _base_poses[bone_name]
         var axis_vec = _axis_to_vector(data.get("axis", ""))
         var angle = deg_to_rad(data.get("default_deg", 0.0))
