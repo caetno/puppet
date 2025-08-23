@@ -14,16 +14,22 @@ var _model: Node3D
 @onready var _list: VBoxContainer = $VBox/Main/Right/List
 @onready var _tree: Tree = $VBox/Main/Left/NodeTree
 @onready var _viewport: SubViewport = $VBox/Main/ViewportPane/SubViewport
+@onready var _viewport_pane: ViewportContainer = $VBox/Main/ViewportPane
 @onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
+
+var _dragging := false
 
 func _ready() -> void:
     title = "Humanoid Muscles"
     size = Vector2(1200, 600)
+    close_requested.connect(func(): hide())
+    set_close_on_escape(true)
     _setup_picker()
     _load_default_profile()
     _load_model()
     _populate_tree()
     _populate_list()
+    _viewport_pane.gui_input.connect(_on_viewport_input)
 
 func _setup_picker() -> void:
     _picker.base_type = "MuscleProfile"
@@ -33,9 +39,12 @@ func _setup_picker() -> void:
 func _on_profile_changed(res: Resource) -> void:
     if res:
         _profile = res
+        if _profile.muscles.is_empty():
+            _load_default_profile()
     else:
         _profile = MuscleProfile.new()
         _load_default_profile()
+    _update_skeleton_path()
     _populate_list()
 
 func _load_model() -> void:
@@ -51,6 +60,12 @@ func _load_model() -> void:
     var light := DirectionalLight3D.new()
     light.rotation_degrees = Vector3(-45, -30, 0)
     _viewport.add_child(light)
+    _update_skeleton_path()
+
+func _update_skeleton_path() -> void:
+    var skeleton := _model.get_node_or_null("Skeleton")
+    if skeleton:
+        _profile.skeleton = _model.get_path_to(skeleton)
 
 func _populate_tree() -> void:
     _tree.clear()
@@ -89,4 +104,10 @@ func _populate_list() -> void:
         slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         slider.value_changed.connect(func(v, id=id): _profile.muscles[id]["default_deg"] = v)
         row.add_child(slider)
+
+func _on_viewport_input(event: InputEvent) -> void:
+    if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+        _dragging = event.pressed
+    elif event is InputEventMouseMotion and _dragging:
+        _model.rotate_y(-event.relative.x * 0.01)
 
