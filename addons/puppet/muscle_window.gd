@@ -11,16 +11,17 @@ const HumanoidScene = preload("res://humanoid_example.tscn")
 var _profile: MuscleProfile = MuscleProfile.new()
 var _model: Node3D
 
-@onready var _list: VBoxContainer = $VBox/Main/Right/List
+@onready var _list: VBoxContainer = $VBox/Main/Right/Scroll/List
+@onready var _viewport_container: SubViewportContainer = $VBox/Main/ViewportPane
 @onready var _viewport: SubViewport = $VBox/Main/ViewportPane/SubViewport
 @onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
-@onready var _tree: Tree = $VBox/Main/Left/NodeTree
 
 var _orbiting := false
 var _pivot: Node3D
 var _camera: Camera3D
 var _cam_distance := 3.0
 var _cam_rotation := Vector2.ZERO
+var _base_poses := {}
 
 func _ready() -> void:
     title = "Humanoid Muscles"
@@ -31,7 +32,8 @@ func _ready() -> void:
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _load_model()
     _populate_list()
-    _viewport.input.connect(_on_viewport_input)
+    _apply_all_muscles()
+    _viewport_container.gui_input.connect(_on_viewport_input)
 
 func _unhandled_key_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -52,6 +54,7 @@ func _on_profile_changed(res: Resource) -> void:
         _load_default_profile()
     _update_skeleton_path()
     _populate_list()
+    _apply_all_muscles()
 
 func _load_model() -> void:
     for child in _viewport.get_children():
@@ -74,7 +77,7 @@ func _load_model() -> void:
     env.environment.background_color = Color(0.2, 0.2, 0.2)
     _viewport.add_child(env)
     _update_skeleton_path()
-    _populate_tree()
+    _cache_bone_poses()
 
 func _update_skeleton_path() -> void:
     var skeleton := _model.get_node_or_null("Skeleton")
@@ -144,16 +147,43 @@ func _on_slider_changed(value: float, id: String) -> void:
     if _profile.muscles.has(id):
         var muscle = _profile.muscles[id]
         muscle["default_deg"] = value
+        _apply_all_muscles()
 
-func _populate_tree() -> void:
-    _tree.clear()
-    var root_item = _tree.create_item()
-    root_item.set_text(0, _model.name)
-    _add_tree_items(root_item, _model)
+func _cache_bone_poses() -> void:
+    _base_poses.clear()
+    var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+    if skeleton:
+        for i in range(skeleton.get_bone_count()):
+            var name = skeleton.get_bone_name(i)
+            _base_poses[name] = skeleton.get_bone_global_pose(i)
 
-func _add_tree_items(parent: TreeItem, node: Node) -> void:
-    for child in node.get_children():
-        var item = _tree.create_item(parent)
-        item.set_text(0, child.name)
-        _add_tree_items(item, child)
+func _apply_all_muscles() -> void:
+    var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+    if not skeleton:
+        return
+    skeleton.clear_bones_global_pose_override()
+    for id in _profile.muscles.keys():
+        var data = _profile.muscles[id]
+        var bone_name: String = data.get("bone_ref", "")
+        if not _base_poses.has(bone_name):
+            continue
+        var bone_idx = skeleton.find_bone(bone_name)
+        var base: Transform3D = _base_poses[bone_name]
+        var axis_vec = _axis_to_vector(data.get("axis", ""))
+        var angle = deg_to_rad(data.get("default_deg", 0.0))
+        var rot = Basis(axis_vec, angle)
+        var new_basis = base.basis * rot
+        var pose = Transform3D(new_basis, base.origin)
+        skeleton.set_bone_global_pose_override(bone_idx, pose, 1.0, true)
+
+func _axis_to_vector(axis: String) -> Vector3:
+    match axis:
+        "front_back", "nod", "down_up", "finger_open_close":
+            return Vector3(1, 0, 0)
+        "left_right":
+            return Vector3(0, 1, 0)
+        "tilt":
+            return Vector3(0, 0, 1)
+        _:
+            return Vector3.ZERO
 
