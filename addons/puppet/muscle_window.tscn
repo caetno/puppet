@@ -18,6 +18,15 @@ custom_minimum_size = Vector2(0, 30)
 [node name="Main" type="HBoxContainer" parent="VBox"]
 size_flags_vertical = 3
 
+[node name="Left" type="ScrollContainer" parent="VBox/Main"]
+size_flags_horizontal = 1
+size_flags_vertical = 3
+custom_minimum_size = Vector2(250, 0)
+
+[node name="NodeTree" type="Tree" parent="VBox/Main/Left"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
 [node name="ViewportPane" type="SubViewportContainer" parent="VBox/Main"]
 size_flags_horizontal = 3
 size_flags_vertical = 3
