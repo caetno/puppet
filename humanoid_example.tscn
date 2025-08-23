@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://humanoidexample"]
+
+[node name="HumanoidExample" type="Node3D"]
+
+[node name="Skeleton" type="Skeleton3D" parent="."]
+
+[node name="PhysicalBoneSimulator3D" type="PhysicalBoneSimulator3D" parent="Skeleton"]
