@@ -31,7 +31,7 @@ func _ready() -> void:
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _load_model()
     _populate_list()
-    _viewport.gui_input.connect(_on_viewport_input)
+    _viewport.input.connect(_on_viewport_input)
 
 func _unhandled_key_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -64,7 +64,7 @@ func _load_model() -> void:
     _camera.position = Vector3(0, 1.5, _cam_distance)
     _pivot.add_child(_camera)
     _camera.look_at(Vector3.ZERO, Vector3.UP)
-    _viewport.camera_3d = _camera
+    _camera.current = true
     var light := DirectionalLight3D.new()
     light.rotation_degrees = Vector3(-45, -30, 0)
     _viewport.add_child(light)
@@ -89,24 +89,41 @@ func _load_default_profile() -> void:
 func _populate_list() -> void:
     for child in _list.get_children():
         child.queue_free()
+
+    var grouped: Dictionary = {}
     for id in _profile.muscles.keys():
         var data = _profile.muscles[id]
-        var row := HBoxContainer.new()
-        row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        _list.add_child(row)
-        var label := Label.new()
-        label.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
-        label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        row.add_child(label)
+        var grp: String = data.get("group", "Misc")
+        if not grouped.has(grp):
+            grouped[grp] = []
+        grouped[grp].append(id)
 
-        var slider := HSlider.new()
-        slider.min_value = data.get("min_deg", -180.0)
-        slider.max_value = data.get("max_deg", 180.0)
-        slider.step = 1.0
-        slider.value = data.get("default_deg", 0.0)
-        slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        slider.value_changed.connect(_on_slider_changed.bind(id))
-        row.add_child(slider)
+    var order := ["Body", "Head", "Left Arm", "Left Fingers", "Right Arm", "Right Fingers", "Left Leg", "Right Leg", "Misc"]
+    for grp in order:
+        if not grouped.has(grp):
+            continue
+        var header := Label.new()
+        header.text = grp
+        header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _list.add_child(header)
+        for id in grouped[grp]:
+            var data = _profile.muscles[id]
+            var row := HBoxContainer.new()
+            row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            _list.add_child(row)
+            var label := Label.new()
+            label.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
+            label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            row.add_child(label)
+
+            var slider := HSlider.new()
+            slider.min_value = data.get("min_deg", -180.0)
+            slider.max_value = data.get("max_deg", 180.0)
+            slider.step = 1.0
+            slider.value = data.get("default_deg", 0.0)
+            slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            slider.value_changed.connect(_on_slider_changed.bind(id))
+            row.add_child(slider)
 
 func _on_viewport_input(event: InputEvent) -> void:
     if event is InputEventMouseButton:
