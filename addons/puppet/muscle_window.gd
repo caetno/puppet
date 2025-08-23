@@ -14,7 +14,7 @@ var _model: Node3D
 @onready var _list: VBoxContainer = $VBox/Main/Right/List
 @onready var _tree: Tree = $VBox/Main/Left/NodeTree
 @onready var _viewport: SubViewport = $VBox/Main/ViewportPane/SubViewport
-@onready var _viewport_pane: ViewportContainer = $VBox/Main/ViewportPane
+@onready var _viewport_pane: SubViewportContainer = $VBox/Main/ViewportPane
 @onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
 
 var _dragging := false
@@ -23,13 +23,16 @@ func _ready() -> void:
     title = "Humanoid Muscles"
     size = Vector2(1200, 600)
     close_requested.connect(func(): hide())
-    set_close_on_escape(true)
     _setup_picker()
     _load_default_profile()
     _load_model()
     _populate_tree()
     _populate_list()
     _viewport_pane.gui_input.connect(_on_viewport_input)
+
+func _unhandled_key_input(event: InputEvent) -> void:
+    if event.is_action_pressed("ui_cancel"):
+        hide()
 
 func _setup_picker() -> void:
     _picker.base_type = "MuscleProfile"
