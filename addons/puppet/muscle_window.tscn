@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://musclewindow"]
+
+[node name="MuscleWindow" type="Window"]
+script = ExtResource("1")
+
+[ext_resource type="Script" path="res://addons/puppet/muscle_window.gd" id="1"]
+
+[node name="VBox" type="VBoxContainer" parent="."]
