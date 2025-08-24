@@ -4,7 +4,6 @@ class_name MuscleWindow
 
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
-const HumanoidScene = preload("res://humanoid_example.tscn")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
@@ -31,9 +30,6 @@ func _ready() -> void:
     close_requested.connect(func(): hide())
     _setup_picker()
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _load_model()
-    _populate_list()
-    _apply_all_muscles()
     _viewport_container.gui_input.connect(_on_viewport_input)
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -65,10 +61,12 @@ func load_skeleton(skeleton: Skeleton3D) -> void:
     _populate_list()
     _apply_all_muscles()
 
-func _load_model(src: Node3D = null) -> void:
+func _load_model(src: Node3D) -> void:
     for child in _viewport.get_children():
         child.queue_free()
-    _model = src.duplicate() if src else HumanoidScene.instantiate()
+    _model = src.duplicate()
+    _remove_physical_bones(_model)
+
     _viewport.add_child(_model)
     _pivot = Node3D.new()
     _viewport.add_child(_pivot)
@@ -93,6 +91,13 @@ func _load_model(src: Node3D = null) -> void:
             _profile.skeleton = _model.get_path_to(skeleton)
     _cache_bone_poses()
     _populate_tree()
+
+func _remove_physical_bones(node: Node) -> void:
+    if node is PhysicalBoneSimulator3D:
+        node.queue_free()
+        return
+    for child in node.get_children():
+        _remove_physical_bones(child)
 
 func _populate_tree() -> void:
     _tree.clear()
