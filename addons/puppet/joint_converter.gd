@@ -14,7 +14,7 @@ const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 # `Generic6DOFJoint3D` while preserving the original attachment nodes and
 # transform.
 static func convert_to_6dof(skeleton: Skeleton3D) -> void:
-    if skeleton == null:
+    if not skeleton:
         return
 
     # Collect all joints that need to be converted.  We gather them first so we
@@ -72,7 +72,7 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 # minimum / maximum angles in degrees.  The limits are translated to the
 # corresponding joint properties.
 static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
-    if profile == null or skeleton == null:
+    if not profile or not skeleton:
         return
 
     # Build a lookup table of joints by name for fast access when iterating
@@ -99,7 +99,7 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         var min_deg: float = data.get("min_deg", -180.0)
         var max_deg: float = data.get("max_deg", 180.0)
 
-        var axis_char := _axis_to_char(axis)
+        var axis_char: String = _axis_to_char(axis)
         if axis_char == "":
             continue
         var base := "angular_limit_%s" % axis_char
