@@ -1,6 +1,8 @@
 @tool
 class_name JointConverter
 
+const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+
 ## Utility functions for converting joints and applying limits.
 
 # -- Joint conversion -------------------------------------------------------
@@ -48,16 +50,25 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         parent.move_child(new_joint, idx)
         old_joint.queue_free()
 
-        # Allow all angular movement initially – limits will be applied later.
-        new_joint.set("angular_limit_enabled_x", true)
-        new_joint.set("angular_limit_enabled_y", true)
-        new_joint.set("angular_limit_enabled_z", true)
-        new_joint.set("angular_limit_lower_x", -PI)
-        new_joint.set("angular_limit_upper_x", PI)
-        new_joint.set("angular_limit_lower_y", -PI)
-        new_joint.set("angular_limit_upper_y", PI)
-        new_joint.set("angular_limit_lower_z", -PI)
-        new_joint.set("angular_limit_upper_z", PI)
+
+        # Configure default angular limits on the three joint axes.  Godot
+        # requires the axis vectors to be normalised before limits are enabled,
+        # so derive them from the joint's basis and store them explicitly.
+        var basis := new_joint.transform.basis.orthonormalized()
+        new_joint.transform.basis = basis
+        new_joint.set("angular_limit_x/axis", basis.x)
+        new_joint.set("angular_limit_y/axis", basis.y)
+        new_joint.set("angular_limit_z/axis", basis.z)
+
+        new_joint.set("angular_limit_x/enabled", true)
+        new_joint.set("angular_limit_y/enabled", true)
+        new_joint.set("angular_limit_z/enabled", true)
+        new_joint.set("angular_limit_x/lower_angle", -PI)
+        new_joint.set("angular_limit_x/upper_angle", PI)
+        new_joint.set("angular_limit_y/lower_angle", -PI)
+        new_joint.set("angular_limit_y/upper_angle", PI)
+        new_joint.set("angular_limit_z/lower_angle", -PI)
+        new_joint.set("angular_limit_z/upper_angle", PI)
 
 
 # -- Limit application ------------------------------------------------------
@@ -98,13 +109,12 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         var axis_char := _axis_to_char(axis)
         if axis_char == "":
             continue
-        var lower_prop := "angular_limit_lower_%s" % axis_char
-        var upper_prop := "angular_limit_upper_%s" % axis_char
-        var enable_prop := "angular_limit_enabled_%s" % axis_char
 
-        joint.set(enable_prop, true)
-        joint.set(lower_prop, deg_to_rad(min_deg))
-        joint.set(upper_prop, deg_to_rad(max_deg))
+        var base := "angular_limit_%s" % axis_char
+        joint.set("%s/enabled" % base, true)
+        joint.set("%s/lower_angle" % base, deg_to_rad(min_deg))
+        joint.set("%s/upper_angle" % base, deg_to_rad(max_deg))
+
 
 
 # -- Helpers ----------------------------------------------------------------
