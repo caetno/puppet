@@ -43,7 +43,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _setup_picker() -> void:
     _picker.base_type = "MuscleProfile"
     _picker.edited_resource = _profile
-    _picker.allow_create = true
     _picker.resource_changed.connect(_on_profile_changed)
 
 func _on_profile_changed(res: Resource) -> void:
