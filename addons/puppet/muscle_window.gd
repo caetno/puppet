@@ -1,24 +1,13 @@
 @tool
 extends Window
 class_name MuscleWindow
+
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+const MuscleData = preload("res://addons/puppet/muscle_data.gd")
+const HumanoidScene = preload("res://humanoid_example.tscn")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
-var _profile: MuscleProfile = MuscleProfile.new()
-
-
-var _profile: MuscleProfile
-@onready var _picker: EditorResourcePicker = $VBox/ProfilePicker
-
-@onready var _tree: Tree = $Split/Tree
-@onready var _viewport_container: SubViewportContainer = $Split/SubViewportContainer
-@onready var _list: VBoxContainer = $Split/PanelContainer/ScrollContainer/VBoxContainer
-
-const MuscleData = preload("res://addons/puppet/muscle_data.gd")
-const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
-const HumanoidScene = preload("res://humanoid_example.tscn")
-
 var _profile: MuscleProfile = MuscleProfile.new()
 var _model: Node3D
 
@@ -54,7 +43,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _setup_picker() -> void:
     _picker.base_type = "MuscleProfile"
     _picker.edited_resource = _profile
-    _picker.allow_create = true
     _picker.resource_changed.connect(_on_profile_changed)
 
 func _on_profile_changed(res: Resource) -> void:
@@ -222,4 +210,3 @@ func _axis_to_vector(axis: String) -> Vector3:
             return Vector3(0, 0, 1)
         _:
             return Vector3.ZERO
-
