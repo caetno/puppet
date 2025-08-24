@@ -10,6 +10,5 @@ This project contains a Godot editor plugin that will provide a muscle configura
   - `profile_resource.gd` – resource for storing profiles
   - `joint_converter.gd` – conversion and limit application stubs
   - `io.gd` – JSON import/export helpers
-- `humanoid_example.tscn` – minimal scene with a `Skeleton3D` and `PhysicalBoneSimulator3D`
 
 Enable the plugin in **Project > Project Settings > Plugins** after opening the project in Godot.

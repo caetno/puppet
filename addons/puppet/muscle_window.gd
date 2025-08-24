@@ -1,24 +1,12 @@
 @tool
 extends Window
 class_name MuscleWindow
+
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
-var _profile: MuscleProfile = MuscleProfile.new()
-
-
-var _profile: MuscleProfile
-@onready var _picker: EditorResourcePicker = $VBox/ProfilePicker
-
-@onready var _tree: Tree = $Split/Tree
-@onready var _viewport_container: SubViewportContainer = $Split/SubViewportContainer
-@onready var _list: VBoxContainer = $Split/PanelContainer/ScrollContainer/VBoxContainer
-
-const MuscleData = preload("res://addons/puppet/muscle_data.gd")
-const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
-const HumanoidScene = preload("res://humanoid_example.tscn")
-
 var _profile: MuscleProfile = MuscleProfile.new()
 var _model: Node3D
 
@@ -42,9 +30,6 @@ func _ready() -> void:
     close_requested.connect(func(): hide())
     _setup_picker()
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _load_model()
-    _populate_list()
-    _apply_all_muscles()
     _viewport_container.gui_input.connect(_on_viewport_input)
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -54,28 +39,33 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _setup_picker() -> void:
     _picker.base_type = "MuscleProfile"
     _picker.edited_resource = _profile
-    _picker.allow_create = true
     _picker.resource_changed.connect(_on_profile_changed)
 
 func _on_profile_changed(res: Resource) -> void:
     if res:
         _profile = res
         if _profile.muscles.is_empty():
-            var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+            var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
             if skeleton:
                 _profile.load_from_skeleton(skeleton)
     else:
         _profile = MuscleProfile.new()
-        var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
         if skeleton:
             _profile.load_from_skeleton(skeleton)
     _populate_list()
     _apply_all_muscles()
 
-func _load_model() -> void:
+func load_skeleton(skeleton: Skeleton3D) -> void:
+    _load_model(skeleton)
+    _populate_list()
+    _apply_all_muscles()
+
+func _load_model(src: Node3D) -> void:
     for child in _viewport.get_children():
         child.queue_free()
-    _model = HumanoidScene.instantiate()
+    _model = src.duplicate()
+    _remove_physical_bones(_model)
     _viewport.add_child(_model)
     _pivot = Node3D.new()
     _viewport.add_child(_pivot)
@@ -92,7 +82,7 @@ func _load_model() -> void:
     env.environment.background_mode = Environment.BG_COLOR
     env.environment.background_color = Color(0.2, 0.2, 0.2)
     _viewport.add_child(env)
-    var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+    var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
     if skeleton:
         if _profile.muscles.is_empty():
             _profile.load_from_skeleton(skeleton)
@@ -101,11 +91,18 @@ func _load_model() -> void:
     _cache_bone_poses()
     _populate_tree()
 
+func _remove_physical_bones(node: Node) -> void:
+    if node is PhysicalBoneSimulator3D:
+        node.queue_free()
+        return
+    for child in node.get_children():
+        _remove_physical_bones(child)
+
 func _populate_tree() -> void:
     _tree.clear()
     var root := _tree.create_item()
     _tree.hide_root = true
-    var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+    var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
     if not skeleton:
         return
     var items := {}
@@ -179,14 +176,14 @@ func _on_slider_changed(value: float, id: String) -> void:
 func _cache_bone_poses() -> void:
     _base_poses.clear()
     _warned_bones.clear()
-    var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+    var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
     if skeleton:
         for i in range(skeleton.get_bone_count()):
             var name = skeleton.get_bone_name(i)
             _base_poses[name] = skeleton.get_bone_global_pose(i)
 
 func _apply_all_muscles() -> void:
-    var skeleton := _model.get_node_or_null("Skeleton") as Skeleton3D
+    var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
     if not skeleton:
         return
     skeleton.clear_bones_global_pose_override()
@@ -222,4 +219,3 @@ func _axis_to_vector(axis: String) -> Vector3:
             return Vector3(0, 0, 1)
         _:
             return Vector3.ZERO
-
