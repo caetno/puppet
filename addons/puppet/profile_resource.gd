@@ -39,5 +39,5 @@ func load_from_skeleton(skel: Skeleton3D) -> void:
         else:
             bone_map[name] = ""
     muscles.clear()
-    for muscle in MuscleData.DEFAULT_MUSCLES:
+    for muscle in MuscleData.default_muscles():
         muscles[str(muscle["muscle_id"])] = muscle.duplicate(true)

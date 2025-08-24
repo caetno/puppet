@@ -129,4 +129,6 @@ static func _build_default_muscles() -> Array:
             id += 1
     return muscles
 
-var DEFAULT_MUSCLES := _build_default_muscles()
+
+static func default_muscles() -> Array:
+    return _build_default_muscles()
