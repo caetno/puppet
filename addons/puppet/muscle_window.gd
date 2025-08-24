@@ -1,8 +1,9 @@
 @tool
 extends Window
 
-## Placeholder editor window for muscle configuration.
+## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
+
 
 var _profile: MuscleProfile
 @onready var _picker: EditorResourcePicker = $VBox/ProfilePicker
@@ -24,6 +25,7 @@ func _on_picker_resource_changed(res: Resource) -> void:
     else:
         _profile = res
     _profile.changed.connect(_on_muscle_edited)
+
 
 func _load_default_profile() -> void:
     _profile.muscles.clear()
