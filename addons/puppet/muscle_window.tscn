@@ -34,22 +34,47 @@ size_flags_vertical = 3
 
 [node name="VBox" type="VBoxContainer" parent="."]
 
-[node name="ProfilePicker" type="EditorResourcePicker" parent="VBox"]
+size_flags_vertical = 3
 
+[node name="Top" type="HBoxContainer" parent="VBox"]
+size_flags_horizontal = 3
+
+[node name="ProfilePicker" type="EditorResourcePicker" parent="VBox/Top"]
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(300, 30)
+
+[node name="Main" type="HBoxContainer" parent="VBox"]
+size_flags_vertical = 3
+
+[node name="Left" type="PanelContainer" parent="VBox/Main"]
+size_flags_horizontal = 1
+size_flags_vertical = 3
+custom_minimum_size = Vector2(200, 0)
+
+[node name="Tree" type="Tree" parent="VBox/Main/Left"]
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="ViewportContainer" type="SubViewportContainer" parent="VBox"]
+[node name="ViewportPane" type="SubViewportContainer" parent="VBox/Main"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="SubViewport" type="SubViewport" parent="VBox/Main/ViewportPane"]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+render_target_update_mode = 3
+
+[node name="Right" type="PanelContainer" parent="VBox/Main"]
+size_flags_horizontal = 1
+size_flags_vertical = 3
+custom_minimum_size = Vector2(300, 0)
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/Main/Right"]
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="Viewport" type="SubViewport" parent="VBox/ViewportContainer"]
+[node name="List" type="VBoxContainer" parent="VBox/Main/Right/Scroll"]
+size_flags_horizontal = 3
 
-[node name="Pivot" type="Node3D" parent="VBox/ViewportContainer/Viewport"]
-
-[node name="Camera3D" type="Camera3D" parent="VBox/ViewportContainer/Viewport/Pivot"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4)
-current = true
-
-[connection signal="gui_input" from="VBox/ViewportContainer/Viewport" to="." method="_on_viewport_input"]
 
