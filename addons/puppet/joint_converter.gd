@@ -21,6 +21,7 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
     # can safely modify the scene tree while iterating.
     var to_convert: Array = []
 
+
     var stack: Array = [skeleton]
     while stack.size() > 0:
         var node: Node = stack.pop_back()
@@ -28,6 +29,7 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
             stack.append(child)
             if child is Joint3D and not (child is Generic6DOFJoint3D):
                 to_convert.append(child)
+
 
     for old_joint in to_convert:
         var new_joint := Generic6DOFJoint3D.new()
@@ -39,12 +41,15 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         new_joint.disable_collisions_between_bodies = old_joint.disable_collisions_between_bodies
 
         # Place the new joint in the same position in the scene tree.
+
         var parent: Node = old_joint.get_parent()
         var idx: int = parent.get_children().find(old_joint)
+
         parent.remove_child(old_joint)
         parent.add_child(new_joint)
         parent.move_child(new_joint, idx)
         old_joint.queue_free()
+
 
         # Configure default angular limits on the three joint axes.  Godot
         # requires the axis vectors to be normalised before limits are enabled,
@@ -80,6 +85,7 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
     # bone it controls which makes this straightforward.
     var joints: Dictionary = {}
 
+
     var stack: Array = [skeleton]
     while stack.size() > 0:
         var node: Node = stack.pop_back()
@@ -87,6 +93,7 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
             stack.append(child)
             if child is Generic6DOFJoint3D:
                 joints[child.name] = child
+
 
     for id in profile.muscles.keys():
         var data: Dictionary = profile.muscles[id]
@@ -102,10 +109,12 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         var axis_char := _axis_to_char(axis)
         if axis_char == "":
             continue
+
         var base := "angular_limit_%s" % axis_char
         joint.set("%s/enabled" % base, true)
         joint.set("%s/lower_angle" % base, deg_to_rad(min_deg))
         joint.set("%s/upper_angle" % base, deg_to_rad(max_deg))
+
 
 
 # -- Helpers ----------------------------------------------------------------
