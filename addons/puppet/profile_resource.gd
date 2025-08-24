@@ -1,16 +1,15 @@
 @tool
 extends Resource
 class_name MuscleProfile
+
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 
 ## Resource storing muscle configuration values for a humanoid avatar.
 @export var skeleton: NodePath
 @export var muscles: Dictionary = {}
 @export var version: String = "0.1"
-
 @export var bone_map: Dictionary = {}
 
-const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 const UNITY_BONES := [
     "Hips",
     "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "LeftToes",
@@ -40,5 +39,5 @@ func load_from_skeleton(skel: Skeleton3D) -> void:
         else:
             bone_map[name] = ""
     muscles.clear()
-    for muscle in MuscleData.DEFAULT_MUSCLES:
+    for muscle in MuscleData.default_muscles():
         muscles[str(muscle["muscle_id"])] = muscle.duplicate(true)
