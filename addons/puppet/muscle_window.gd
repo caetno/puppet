@@ -1,8 +1,11 @@
 @tool
 extends Window
+class_name MuscleWindow
+const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
+var _profile: MuscleProfile = MuscleProfile.new()
 
 
 var _profile: MuscleProfile
@@ -11,6 +14,11 @@ var _profile: MuscleProfile
 func _ready() -> void:
     title = "Humanoid Muscles"
     size = Vector2(800, 600)
+
+
+func load_skeleton(skeleton: Skeleton3D) -> void:
+    _profile.load_from_skeleton(skeleton)
+
     _picker.base_type = "MuscleProfile"
     _picker.allow_create = true
     _picker.resource_changed.connect(_on_picker_resource_changed)
@@ -36,3 +44,4 @@ func _load_default_profile() -> void:
 func _on_muscle_edited() -> void:
     if _profile and _profile.resource_path != "":
         ResourceSaver.save(_profile.resource_path, _profile)
+

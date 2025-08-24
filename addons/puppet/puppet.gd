@@ -1,8 +1,9 @@
 @tool
 extends EditorPlugin
+const MuscleWindow = preload("res://addons/puppet/muscle_window.gd")
 
 var _button: Button
-var _muscle_window: Window
+var _muscle_window: MuscleWindow
 
 func _enter_tree() -> void:
     _button = Button.new()
@@ -24,6 +25,9 @@ func _on_button_pressed() -> void:
         _muscle_window = preload("res://addons/puppet/muscle_window.tscn").instantiate()
         _muscle_window.editor_plugin = self
         get_editor_interface().get_editor_main_screen().add_child(_muscle_window)
+    var nodes := get_editor_interface().get_selection().get_selected_nodes()
+    if nodes.size() > 0 and nodes[0] is Skeleton3D:
+        _muscle_window.load_skeleton(nodes[0])
     _muscle_window.popup_centered()
 
 func _update_button_visibility() -> void:
