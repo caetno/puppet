@@ -6,3 +6,5 @@
 script = ExtResource("1")
 
 [node name="VBox" type="VBoxContainer" parent="."]
+
+[node name="ProfilePicker" type="EditorResourcePicker" parent="VBox"]
