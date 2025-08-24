@@ -66,6 +66,7 @@ func _load_model(src: Node3D) -> void:
         child.queue_free()
     _model = src.duplicate()
     _remove_physical_bones(_model)
+
     _viewport.add_child(_model)
     _pivot = Node3D.new()
     _viewport.add_child(_pivot)
