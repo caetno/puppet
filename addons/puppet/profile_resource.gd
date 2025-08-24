@@ -3,8 +3,9 @@ extends Resource
 class_name MuscleProfile
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 
-## Resource storing muscle configuration values.
-@export var muscles := {}
+## Resource storing muscle configuration values for a humanoid avatar.
+@export var skeleton: NodePath
+@export var muscles: Dictionary = {}
 @export var version: String = "0.1"
 
 ## Humanoid bone mapping per Unity's avatar specification.
