@@ -1,8 +1,19 @@
 @tool
 extends Window
+class_name MuscleWindow
+const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
+var _profile: MuscleProfile = MuscleProfile.new()
+
+
+var _profile: MuscleProfile
+@onready var _picker: EditorResourcePicker = $VBox/ProfilePicker
+
+@onready var _tree: Tree = $Split/Tree
+@onready var _viewport_container: SubViewportContainer = $Split/SubViewportContainer
+@onready var _list: VBoxContainer = $Split/PanelContainer/ScrollContainer/VBoxContainer
 
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
