@@ -26,7 +26,9 @@ var _warned_bones := {}
 
 func _ready() -> void:
     title = "Humanoid Muscles"
-    size = Vector2(1200, 600)
+    var screen_size := DisplayServer.screen_get_size()
+    size = (screen_size * 0.8).max(Vector2(800, 600))
+    move_to_center()
     close_requested.connect(func(): hide())
     _setup_picker()
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
