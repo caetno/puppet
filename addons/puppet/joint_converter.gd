@@ -15,6 +15,7 @@ const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 # transform.
 static func convert_to_6dof(skeleton: Skeleton3D) -> void:
     if not skeleton:
+
         return
 
     # Collect all joints that need to be converted.  We gather them first so we
@@ -25,12 +26,14 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
     while stack.size() > 0:
         var node: Node = stack.pop_back()
         for child: Node in node.get_children():
+
             stack.append(child)
             if child is Joint3D and not (child is Generic6DOFJoint3D):
                 to_convert.append(child)
 
     for old_joint: Joint3D in to_convert:
         var new_joint: Generic6DOFJoint3D = Generic6DOFJoint3D.new()
+
         new_joint.name = old_joint.name
         new_joint.transform = old_joint.transform
         # Preserve the bodies the joint is attached to.
@@ -39,6 +42,7 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         new_joint.disable_collisions_between_bodies = old_joint.disable_collisions_between_bodies
 
         # Place the new joint in the same position in the scene tree.
+
         var parent: Node = old_joint.get_parent()
         var idx: int = parent.get_children().find(old_joint)
         parent.remove_child(old_joint)
@@ -72,18 +76,22 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 # minimum / maximum angles in degrees.  The limits are translated to the
 # corresponding joint properties.
 static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
+
     if not profile or not skeleton:
+
         return
 
     # Build a lookup table of joints by name for fast access when iterating
     # over the muscles.  The typical workflow is to name the joint after the
     # bone it controls which makes this straightforward.
+
     var joints: Dictionary[StringName, Generic6DOFJoint3D] = {}
 
     var stack: Array[Node] = [skeleton]
     while stack.size() > 0:
         var node: Node = stack.pop_back()
         for child: Node in node.get_children():
+
             stack.append(child)
             if child is Generic6DOFJoint3D:
                 joints[child.name] = child
@@ -102,16 +110,18 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         var axis_char: String = _axis_to_char(axis)
         if axis_char == "":
             continue
+
         var base := "angular_limit_%s" % axis_char
         joint.set("%s/enabled" % base, true)
         joint.set("%s/lower_angle" % base, deg_to_rad(min_deg))
         joint.set("%s/upper_angle" % base, deg_to_rad(max_deg))
 
 
+
 # -- Helpers ----------------------------------------------------------------
 static func _axis_to_char(axis: String) -> String:
     # Maps the profile axis names to the corresponding Generic6DOFJoint axis.
-    match axis:
+
         "front_back", "nod", "down_up", "finger_open_close", "open_close":
             return "x"
         "left_right":

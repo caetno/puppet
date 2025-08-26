@@ -203,22 +203,34 @@ func _apply_all_muscles() -> void:
                 _warned_bones[bone_name] = true
             continue
         var base: Transform3D = _base_poses[bone_name]
+
         var axis_vec = _axis_to_vector(data.get("axis", ""))
         if axis_vec == Vector3.ZERO:
             continue
+
         var angle = deg_to_rad(data.get("default_deg", 0.0))
         var rot = Basis(axis_vec, angle)
         var new_basis = base.basis * rot
         var pose = Transform3D(new_basis, base.origin)
         skeleton.set_bone_global_pose_override(bone_idx, pose, 1.0, true)
 
-func _axis_to_vector(axis: String) -> Vector3:
+func _bone_axis_vector(skeleton: Skeleton3D, bone_idx: int, axis: String) -> Vector3:
+    var rest_basis: Basis = skeleton.get_bone_rest(bone_idx).basis
+    var local_axis: Vector3
     match axis:
+
         "front_back", "nod", "down_up", "finger_open_close", "open_close":
             return Vector3(1, 0, 0)
+
         "left_right":
-            return Vector3(0, 1, 0)
+            local_axis = rest_basis.y
         "tilt":
-            return Vector3(0, 0, 1)
+            local_axis = rest_basis.z
         _:
             return Vector3.ZERO
+    var parent_idx := skeleton.get_bone_parent(bone_idx)
+    var parent_basis: Basis = skeleton.global_transform.basis
+    if parent_idx != -1:
+        var parent_name := skeleton.get_bone_name(parent_idx)
+        parent_basis = _base_poses.get(parent_name, Transform3D.IDENTITY).basis
+    return parent_basis * local_axis
