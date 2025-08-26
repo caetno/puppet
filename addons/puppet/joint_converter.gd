@@ -15,16 +15,20 @@ const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 # transform.
 static func convert_to_6dof(skeleton: Skeleton3D) -> void:
     if not skeleton:
+
         return
 
     # Collect all joints that need to be converted.  We gather them first so we
     # can safely modify the scene tree while iterating.
+
     var to_convert: Array = []
+
 
     var stack: Array[Node] = [skeleton]
     while stack.size() > 0:
         var node: Node = stack.pop_back()
         for child: Node in node.get_children():
+
             stack.append(child)
             if child is Joint3D and not (child is Generic6DOFJoint3D):
                 to_convert.append(child)
@@ -72,6 +76,7 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 # minimum / maximum angles in degrees.  The limits are translated to the
 # corresponding joint properties.
 static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
+
     if not profile or not skeleton:
         return
 
@@ -80,10 +85,12 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
     # bone it controls which makes this straightforward.
     var joints: Dictionary = {}
 
+
     var stack: Array[Node] = [skeleton]
     while stack.size() > 0:
         var node: Node = stack.pop_back()
         for child: Node in node.get_children():
+
             stack.append(child)
             if child is Generic6DOFJoint3D:
                 joints[child.name] = child
@@ -102,11 +109,11 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         var axis_char: String = _axis_to_char(axis)
         if axis_char == "":
             continue
+
         var base := "angular_limit_%s" % axis_char
         joint.set("%s/enabled" % base, true)
         joint.set("%s/lower_angle" % base, deg_to_rad(min_deg))
         joint.set("%s/upper_angle" % base, deg_to_rad(max_deg))
-
 
 # -- Helpers ----------------------------------------------------------------
 static func _axis_to_char(axis: String) -> String:
@@ -119,3 +126,4 @@ static func _axis_to_char(axis: String) -> String:
         return "z"
     else:
         return ""
+

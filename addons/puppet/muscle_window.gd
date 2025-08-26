@@ -203,9 +203,11 @@ func _apply_all_muscles() -> void:
                 _warned_bones[bone_name] = true
             continue
         var base: Transform3D = _base_poses[bone_name]
+
         var axis_vec = _axis_to_vector(data.get("axis", ""))
         if axis_vec == Vector3.ZERO:
             continue
+            
         var angle = deg_to_rad(data.get("default_deg", 0.0))
         var rot = Basis(axis_vec, angle)
         var new_basis = base.basis * rot
