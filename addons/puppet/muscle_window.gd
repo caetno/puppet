@@ -33,6 +33,7 @@ func _ready() -> void:
     _setup_picker()
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _viewport_container.gui_input.connect(_on_viewport_input)
+    _viewport.world_3d = World3D.new()
 
 func _unhandled_key_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
