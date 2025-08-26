@@ -21,7 +21,8 @@ var _pivot: Node3D
 var _camera: Camera3D
 var _cam_distance := 3.0
 var _cam_rotation := Vector2.ZERO
-var _base_poses := {}
+var _base_global_poses := {}
+var _base_local_poses := {}
 var _warned_bones := {}
 
 func _ready() -> void:
@@ -178,44 +179,59 @@ func _on_slider_changed(value: float, id: String) -> void:
         _apply_all_muscles()
 
 func _cache_bone_poses() -> void:
-    _base_poses.clear()
+    _base_global_poses.clear()
+    _base_local_poses.clear()
     _warned_bones.clear()
     var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
     if skeleton:
         for i in range(skeleton.get_bone_count()):
             var name = skeleton.get_bone_name(i)
-            _base_poses[name] = skeleton.get_bone_global_pose(i)
+            _base_global_poses[name] = skeleton.get_bone_global_pose(i)
+        for i in range(skeleton.get_bone_count()):
+            var name = skeleton.get_bone_name(i)
+            var parent := skeleton.get_bone_parent(i)
+            if parent != -1:
+                var parent_name = skeleton.get_bone_name(parent)
+                _base_local_poses[name] = _base_global_poses[parent_name].affine_inverse() * _base_global_poses[name]
+            else:
+                _base_local_poses[name] = _base_global_poses[name]
 
 func _apply_all_muscles() -> void:
     var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
     if not skeleton:
         return
     skeleton.clear_bones_global_pose_override()
+
+    var rotations := {}
     for id in _profile.muscles.keys():
         var data = _profile.muscles[id]
         var bone_name: String = data.get("bone_ref", "")
-        if not _base_poses.has(bone_name):
+        if not _base_local_poses.has(bone_name):
             if not _warned_bones.has(bone_name):
                 push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
                 _warned_bones[bone_name] = true
             continue
-        var bone_idx = skeleton.find_bone(bone_name)
-        if bone_idx == -1:
-            if not _warned_bones.has(bone_name):
-                push_warning("Unknown bone '%s' for muscle '%s'" % [bone_name, id])
-                _warned_bones[bone_name] = true
-            continue
-        var base: Transform3D = _base_poses[bone_name]
-
         var axis_vec = _axis_to_vector(data.get("axis", ""))
         if axis_vec == Vector3.ZERO:
             continue
-            
         var angle = deg_to_rad(data.get("default_deg", 0.0))
         var rot = Basis(axis_vec, angle)
-        var new_basis = base.basis * rot
-        var pose = Transform3D(new_basis, base.origin)
-        skeleton.set_bone_global_pose_override(bone_idx, pose, 1.0, true)
+        rotations[bone_name] = rotations.get(bone_name, Basis()) * rot
+
+    for i in range(skeleton.get_bone_count()):
+        if skeleton.get_bone_parent(i) == -1:
+            _apply_bone_recursive(skeleton, i, Transform3D.IDENTITY, rotations)
+
+func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: Transform3D, rotations: Dictionary) -> void:
+    var name := skeleton.get_bone_name(bone_idx)
+    var base_local: Transform3D = _base_local_poses.get(name, Transform3D.IDENTITY)
+    var rot_basis: Basis = rotations.get(name, Basis())
+    var local_pose := Transform3D(base_local.basis * rot_basis, base_local.origin)
+    var global_pose := parent_global * local_pose
+    skeleton.set_bone_global_pose_override(bone_idx, global_pose, 1.0, true)
+    for j in range(skeleton.get_bone_count()):
+        if skeleton.get_bone_parent(j) == bone_idx:
+            _apply_bone_recursive(skeleton, j, global_pose, rotations)
 
 func _axis_to_vector(axis: String) -> Vector3:
     if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
