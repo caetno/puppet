@@ -204,6 +204,8 @@ func _apply_all_muscles() -> void:
             continue
         var base: Transform3D = _base_poses[bone_name]
         var axis_vec = _axis_to_vector(data.get("axis", ""))
+        if axis_vec == Vector3.ZERO:
+            continue
         var angle = deg_to_rad(data.get("default_deg", 0.0))
         var rot = Basis(axis_vec, angle)
         var new_basis = base.basis * rot
@@ -211,12 +213,11 @@ func _apply_all_muscles() -> void:
         skeleton.set_bone_global_pose_override(bone_idx, pose, 1.0, true)
 
 func _axis_to_vector(axis: String) -> Vector3:
-    match axis:
-        "front_back", "nod", "down_up", "finger_open_close":
-            return Vector3(1, 0, 0)
-        "left_right":
-            return Vector3(0, 1, 0)
-        "tilt":
-            return Vector3(0, 0, 1)
-        _:
-            return Vector3.ZERO
+    if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
+        return Vector3(1, 0, 0)
+    elif axis == "left_right":
+        return Vector3(0, 1, 0)
+    elif axis == "tilt":
+        return Vector3(0, 0, 1)
+    else:
+        return Vector3.ZERO
