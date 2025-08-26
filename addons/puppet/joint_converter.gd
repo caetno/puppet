@@ -20,7 +20,9 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 
     # Collect all joints that need to be converted.  We gather them first so we
     # can safely modify the scene tree while iterating.
-    var to_convert: Array[Joint3D] = []
+
+    var to_convert: Array = []
+
 
     var stack: Array[Node] = [skeleton]
     while stack.size() > 0:
@@ -33,7 +35,6 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 
     for old_joint: Joint3D in to_convert:
         var new_joint: Generic6DOFJoint3D = Generic6DOFJoint3D.new()
-
         new_joint.name = old_joint.name
         new_joint.transform = old_joint.transform
         # Preserve the bodies the joint is attached to.
@@ -42,7 +43,6 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         new_joint.disable_collisions_between_bodies = old_joint.disable_collisions_between_bodies
 
         # Place the new joint in the same position in the scene tree.
-
         var parent: Node = old_joint.get_parent()
         var idx: int = parent.get_children().find(old_joint)
         parent.remove_child(old_joint)
@@ -78,14 +78,13 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 
     if not profile or not skeleton:
-
         return
 
     # Build a lookup table of joints by name for fast access when iterating
     # over the muscles.  The typical workflow is to name the joint after the
     # bone it controls which makes this straightforward.
+    var joints: Dictionary = {}
 
-    var joints: Dictionary[StringName, Generic6DOFJoint3D] = {}
 
     var stack: Array[Node] = [skeleton]
     while stack.size() > 0:
@@ -116,17 +115,15 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         joint.set("%s/lower_angle" % base, deg_to_rad(min_deg))
         joint.set("%s/upper_angle" % base, deg_to_rad(max_deg))
 
-
-
 # -- Helpers ----------------------------------------------------------------
 static func _axis_to_char(axis: String) -> String:
     # Maps the profile axis names to the corresponding Generic6DOFJoint axis.
+    if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
+        return "x"
+    elif axis == "left_right":
+        return "y"
+    elif axis == "tilt":
+        return "z"
+    else:
+        return ""
 
-        "front_back", "nod", "down_up", "finger_open_close", "open_close":
-            return "x"
-        "left_right":
-            return "y"
-        "tilt":
-            return "z"
-        _:
-            return ""
