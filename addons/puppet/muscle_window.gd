@@ -15,6 +15,7 @@ var _model: Node3D
 @onready var _viewport: SubViewport = $VBox/Main/ViewportPane/SubViewport
 @onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
 @onready var _tree: Tree = $VBox/Main/Left/Tree
+@onready var _reset_button: Button = $VBox/Top/ResetButton
 
 var _orbiting := false
 var _pivot: Node3D
@@ -24,6 +25,9 @@ var _cam_rotation := Vector2.ZERO
 var _base_global_poses := {}
 var _base_local_poses := {}
 var _warned_bones := {}
+var _sliders := {}
+var _group_muscles := {}
+var _group_sliders := {}
 
 func _ready() -> void:
     title = "Humanoid Muscles"
@@ -32,6 +36,7 @@ func _ready() -> void:
     move_to_center()
     close_requested.connect(func(): hide())
     _setup_picker()
+    _reset_button.pressed.connect(_on_reset_pressed)
     _list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _viewport_container.gui_input.connect(_on_viewport_input)
     _viewport.world_3d = World3D.new()
@@ -122,6 +127,18 @@ func _populate_list() -> void:
     for child in _list.get_children():
         child.queue_free()
 
+    _sliders.clear()
+    _group_sliders.clear()
+    _group_muscles = {
+        "Open Close": [],
+        "Left Right": [],
+        "Roll Left Right": [],
+        "In Out": [],
+        "Roll In Out": [],
+        "Finger Open Close": [],
+        "Finger In Out": [],
+    }
+
     var grouped: Dictionary = {}
     for id in _profile.muscles.keys():
         var data = _profile.muscles[id]
@@ -130,32 +147,81 @@ func _populate_list() -> void:
             grouped[grp] = []
         grouped[grp].append(id)
 
+        var axis: String = data.get("axis", "")
+        var body_grp: String = data.get("group", "")
+        if axis == "finger_open_close":
+            _group_muscles["Finger Open Close"].append(id)
+        elif axis == "finger_in_out":
+            _group_muscles["Finger In Out"].append(id)
+        elif axis == "tilt":
+            _group_muscles["Roll Left Right"].append(id)
+        elif axis in ["roll_in_out", "twist"]:
+            _group_muscles["Roll In Out"].append(id)
+        elif axis == "left_right":
+            if body_grp in ["Left Arm", "Right Arm", "Left Leg", "Right Leg"]:
+                _group_muscles["In Out"].append(id)
+            else:
+                _group_muscles["Left Right"].append(id)
+        else:
+            _group_muscles["Open Close"].append(id)
+
+    var header := Label.new()
+    header.text = "Muscle Type Groups"
+    header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _list.add_child(header)
+    var type_order := [
+        "Open Close",
+        "Left Right",
+        "Roll Left Right",
+        "In Out",
+        "Roll In Out",
+        "Finger Open Close",
+        "Finger In Out",
+    ]
+    for g in type_order:
+        var row := HBoxContainer.new()
+        row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _list.add_child(row)
+        var label := Label.new()
+        label.text = g
+        label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        row.add_child(label)
+        var slider := HSlider.new()
+        slider.min_value = -1.0
+        slider.max_value = 1.0
+        slider.step = 0.01
+        slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        slider.value_changed.connect(_on_group_slider_changed.bind(g))
+        row.add_child(slider)
+        _group_sliders[g] = slider
+
     var order := ["Body", "Head", "Left Arm", "Left Fingers", "Right Arm", "Right Fingers", "Left Leg", "Right Leg", "Misc"]
     for grp in order:
         if not grouped.has(grp):
             continue
-        var header := Label.new()
-        header.text = grp
-        header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        _list.add_child(header)
+        var header2 := Label.new()
+        header2.text = grp
+        header2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _list.add_child(header2)
         for id in grouped[grp]:
             var data = _profile.muscles[id]
-            var row := HBoxContainer.new()
-            row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            _list.add_child(row)
-            var label := Label.new()
-            label.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
-            label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            row.add_child(label)
+            var row2 := HBoxContainer.new()
+            row2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            _list.add_child(row2)
+            var label2 := Label.new()
+            label2.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
+            label2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            row2.add_child(label2)
 
-            var slider := HSlider.new()
-            slider.min_value = data.get("min_deg", -180.0)
-            slider.max_value = data.get("max_deg", 180.0)
-            slider.step = 1.0
-            slider.value = data.get("default_deg", 0.0)
-            slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            slider.value_changed.connect(_on_slider_changed.bind(id))
-            row.add_child(slider)
+            var slider2 := HSlider.new()
+            slider2.min_value = data.get("min_deg", -180.0)
+            slider2.max_value = data.get("max_deg", 180.0)
+            slider2.step = 1.0
+            slider2.value = data.get("default_deg", 0.0)
+            slider2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            slider2.value_changed.connect(_on_slider_changed.bind(id))
+            row2.add_child(slider2)
+            _sliders[id] = slider2
 
 func _on_viewport_input(event: InputEvent) -> void:
     if event is InputEventMouseButton:
@@ -177,6 +243,33 @@ func _on_slider_changed(value: float, id: String) -> void:
         var muscle = _profile.muscles[id]
         muscle["default_deg"] = value
         _apply_all_muscles()
+
+func _on_group_slider_changed(value: float, group_name: String) -> void:
+    if not _group_muscles.has(group_name):
+        return
+    for id in _group_muscles[group_name]:
+        if _profile.muscles.has(id):
+            var muscle = _profile.muscles[id]
+            var min_deg = muscle.get("min_deg", -180.0)
+            var max_deg = muscle.get("max_deg", 180.0)
+            var t = (value + 1.0) * 0.5
+            var deg = lerp(min_deg, max_deg, t)
+            muscle["default_deg"] = deg
+            var slider = _sliders.get(id)
+            if slider:
+                slider.set_value_no_signal(deg)
+    _apply_all_muscles()
+
+func _on_reset_pressed() -> void:
+    for id in _profile.muscles.keys():
+        var muscle = _profile.muscles[id]
+        muscle["default_deg"] = 0.0
+        var slider: HSlider = _sliders.get(id)
+        if slider:
+            slider.set_value_no_signal(0.0)
+    for g in _group_sliders.keys():
+        _group_sliders[g].set_value_no_signal(0.0)
+    _apply_all_muscles()
 
 func _cache_bone_poses() -> void:
     _base_global_poses.clear()
