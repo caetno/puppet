@@ -25,12 +25,12 @@ const HUMANOID_BONES := [
 # Axes to create for each bone. Bones not listed default to a single twist axis.
 const BONE_AXES := {
     "Hips": ["front_back", "left_right"],
-    "LeftUpperLeg": ["front_back"],
-    "LeftLowerLeg": ["front_back"],
+    "LeftUpperLeg": ["front_back", "left_right", "roll_in_out"],
+    "LeftLowerLeg": ["front_back", "roll_in_out"],
     "LeftFoot": ["front_back"],
     "LeftToes": ["front_back"],
-    "RightUpperLeg": ["front_back"],
-    "RightLowerLeg": ["front_back"],
+    "RightUpperLeg": ["front_back", "left_right", "roll_in_out"],
+    "RightLowerLeg": ["front_back", "roll_in_out"],
     "RightFoot": ["front_back"],
     "RightToes": ["front_back"],
     "Spine": ["front_back", "left_right"],
@@ -42,8 +42,8 @@ const BONE_AXES := {
     "LeftEye": ["left_right"],
     "RightEye": ["left_right"],
     "LeftShoulder": ["front_back"],
-    "LeftUpperArm": ["down_up", "front_back"],
-    "LeftLowerArm": ["front_back"],
+    "LeftUpperArm": ["down_up", "front_back", "roll_in_out"],
+    "LeftLowerArm": ["front_back", "roll_in_out"],
     "LeftHand": ["finger_open_close"],
     "LeftThumbMetacarpal": ["finger_open_close"],
     "LeftThumbProximal": ["finger_open_close"],
@@ -61,8 +61,8 @@ const BONE_AXES := {
     "LeftLittleIntermediate": ["finger_open_close"],
     "LeftLittleDistal": ["finger_open_close"],
     "RightShoulder": ["front_back"],
-    "RightUpperArm": ["down_up", "front_back"],
-    "RightLowerArm": ["front_back"],
+    "RightUpperArm": ["down_up", "front_back", "roll_in_out"],
+    "RightLowerArm": ["front_back", "roll_in_out"],
     "RightHand": ["finger_open_close"],
     "RightThumbMetacarpal": ["finger_open_close"],
     "RightThumbProximal": ["finger_open_close"],
@@ -94,7 +94,7 @@ static func _bone_group(bone: String) -> String:
         return "Head"
     return "Body"
 
-static func _angle_limits(bone: String) -> Array:
+static func _angle_limits(bone: String, axis: String = "") -> Array:
     var min_deg := -30.0
     var max_deg := 30.0
     if bone.contains("UpperArm") or bone.contains("LowerArm") or bone.contains("Shoulder") or bone.contains("UpperLeg") or bone.contains("LowerLeg") or bone.contains("Foot"):
@@ -106,6 +106,9 @@ static func _angle_limits(bone: String) -> Array:
     if bone.find("Hand") != -1 or bone.find("Thumb") != -1 or bone.find("Index") != -1 or bone.find("Middle") != -1 or bone.find("Ring") != -1 or bone.find("Little") != -1 or bone.find("Toe") != -1:
         min_deg = 0.0
         max_deg = 90.0
+    if axis == "roll_in_out" or axis == "twist":
+        min_deg = -180.0
+        max_deg = 180.0
     return [min_deg, max_deg]
 
 static func _build_default_muscles() -> Array:
@@ -114,8 +117,8 @@ static func _build_default_muscles() -> Array:
     for bone in HUMANOID_BONES:
         var axes = BONE_AXES.get(bone, ["twist"])
         var group = _bone_group(bone)
-        var limits = _angle_limits(bone)
         for axis in axes:
+            var limits = _angle_limits(bone, axis)
             muscles.append({
                 "muscle_id": id,
                 "group": group,
