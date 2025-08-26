@@ -122,7 +122,7 @@ static func _axis_to_char(axis: String) -> String:
         return "x"
     elif axis == "left_right":
         return "y"
-    elif axis == "tilt":
+    elif axis in ["tilt", "roll_in_out", "twist"]:
         return "z"
     else:
         return ""
