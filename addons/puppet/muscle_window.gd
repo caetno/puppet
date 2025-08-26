@@ -238,7 +238,7 @@ func _axis_to_vector(axis: String) -> Vector3:
         return Vector3(1, 0, 0)
     elif axis == "left_right":
         return Vector3(0, 1, 0)
-    elif axis == "tilt":
+    elif axis in ["tilt", "roll_in_out", "twist"]:
         return Vector3(0, 0, 1)
     else:
         return Vector3.ZERO
