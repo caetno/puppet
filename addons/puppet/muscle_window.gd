@@ -203,7 +203,11 @@ func _apply_all_muscles() -> void:
                 _warned_bones[bone_name] = true
             continue
         var base: Transform3D = _base_poses[bone_name]
-        var axis_vec = _bone_axis_vector(skeleton, bone_idx, data.get("axis", ""))
+
+        var axis_vec = _axis_to_vector(data.get("axis", ""))
+        if axis_vec == Vector3.ZERO:
+            continue
+
         var angle = deg_to_rad(data.get("default_deg", 0.0))
         var rot = Basis(axis_vec, angle)
         var new_basis = base.basis * rot
@@ -214,8 +218,10 @@ func _bone_axis_vector(skeleton: Skeleton3D, bone_idx: int, axis: String) -> Vec
     var rest_basis: Basis = skeleton.get_bone_rest(bone_idx).basis
     var local_axis: Vector3
     match axis:
-        "front_back", "nod", "down_up", "finger_open_close":
-            local_axis = rest_basis.x
+
+        "front_back", "nod", "down_up", "finger_open_close", "open_close":
+            return Vector3(1, 0, 0)
+
         "left_right":
             local_axis = rest_basis.y
         "tilt":

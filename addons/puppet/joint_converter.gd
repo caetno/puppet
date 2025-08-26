@@ -14,13 +14,11 @@ const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 # `Generic6DOFJoint3D` while preserving the original attachment nodes and
 # transform.
 static func convert_to_6dof(skeleton: Skeleton3D) -> void:
-    if skeleton == null:
-        return
+    if not skeleton:
 
     # Collect all joints that need to be converted.  We gather them first so we
     # can safely modify the scene tree while iterating.
     var to_convert: Array = []
-
 
     var stack: Array = [skeleton]
     while stack.size() > 0:
@@ -29,7 +27,6 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
             stack.append(child)
             if child is Joint3D and not (child is Generic6DOFJoint3D):
                 to_convert.append(child)
-
 
     for old_joint in to_convert:
         var new_joint := Generic6DOFJoint3D.new()
@@ -77,7 +74,9 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 # minimum / maximum angles in degrees.  The limits are translated to the
 # corresponding joint properties.
 static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
-    if profile == null or skeleton == null:
+
+    if not profile or not skeleton:
+
         return
 
     # Build a lookup table of joints by name for fast access when iterating
@@ -94,7 +93,6 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
             if child is Generic6DOFJoint3D:
                 joints[child.name] = child
 
-
     for id in profile.muscles.keys():
         var data: Dictionary = profile.muscles[id]
         var bone_name: String = data.get("bone_ref", "")
@@ -106,7 +104,7 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
         var min_deg: float = data.get("min_deg", -180.0)
         var max_deg: float = data.get("max_deg", 180.0)
 
-        var axis_char := _axis_to_char(axis)
+        var axis_char: String = _axis_to_char(axis)
         if axis_char == "":
             continue
 
@@ -121,7 +119,8 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 static func _axis_to_char(axis: String) -> String:
     # Maps the profile axis names to the corresponding Generic6DOFJoint axis.
     match axis:
-        "front_back", "nod", "down_up", "finger_open_close":
+
+        "front_back", "nod", "down_up", "finger_open_close", "open_close":
             return "x"
         "left_right":
             return "y"
