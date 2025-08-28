@@ -85,10 +85,14 @@ static func _bone_group(bone: String) -> String:
     if bone.begins_with("Left"):
         if bone.find("Leg") != -1 or bone.find("Foot") != -1 or bone.find("Toe") != -1:
             return "Left Leg"
+        if bone.find("Hand") != -1 or bone.find("Thumb") != -1 or bone.find("Index") != -1 or bone.find("Middle") != -1 or bone.find("Ring") != -1 or bone.find("Little") != -1:
+            return "Left Hand"
         return "Left Arm"
     if bone.begins_with("Right"):
         if bone.find("Leg") != -1 or bone.find("Foot") != -1 or bone.find("Toe") != -1:
             return "Right Leg"
+        if bone.find("Hand") != -1 or bone.find("Thumb") != -1 or bone.find("Index") != -1 or bone.find("Middle") != -1 or bone.find("Ring") != -1 or bone.find("Little") != -1:
+            return "Right Hand"
         return "Right Arm"
     if bone == "Head" or bone == "Jaw" or bone == "Neck" or bone.find("Eye") != -1:
         return "Head"
