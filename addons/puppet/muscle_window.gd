@@ -216,7 +216,7 @@ func _populate_list() -> void:
 
         header2.pressed.connect(func():
             content.visible = header2.button_pressed
-            header2.text = "%s %s" % [header2.button_pressed ? "\u25bc" : "\u25b6", grp]
+            header2.text = "%s %s" % ["\u25bc" if header2.button_pressed else "\u25b6", grp]
         )
 
         for id in grouped[grp]:
