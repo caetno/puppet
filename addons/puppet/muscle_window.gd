@@ -195,19 +195,35 @@ func _populate_list() -> void:
         row.add_child(slider)
         _group_sliders[g] = slider
 
-    var order := ["Body", "Head", "Left Arm", "Left Fingers", "Right Arm", "Right Fingers", "Left Leg", "Right Leg", "Misc"]
+    var order := ["Body", "Head", "Left Arm", "Left Hand", "Right Arm", "Right Hand", "Left Leg", "Right Leg", "Misc"]
     for grp in order:
         if not grouped.has(grp):
             continue
-        var header2 := Label.new()
-        header2.text = grp
+        var section := VBoxContainer.new()
+        section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _list.add_child(section)
+
+        var header2 := Button.new()
+        header2.toggle_mode = true
+        header2.text = "\u25b6 %s" % grp
         header2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        _list.add_child(header2)
+        section.add_child(header2)
+
+        var content := VBoxContainer.new()
+        content.visible = false
+        content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        section.add_child(content)
+
+        header2.pressed.connect(func():
+            content.visible = header2.button_pressed
+            header2.text = "%s %s" % [header2.button_pressed ? "\u25bc" : "\u25b6", grp]
+        )
+
         for id in grouped[grp]:
             var data = _profile.muscles[id]
             var row2 := HBoxContainer.new()
             row2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            _list.add_child(row2)
+            content.add_child(row2)
             var label2 := Label.new()
             label2.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
             label2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
