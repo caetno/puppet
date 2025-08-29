@@ -359,7 +359,7 @@ func _apply_all_muscles() -> void:
                 push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
                 _warned_bones[bone_name] = true
             continue
-        var axis_vec = _axis_to_vector(data.get("axis", ""))
+        var axis_vec = _axis_to_vector(data.get("axis", ""), bone_name, skeleton)
         if axis_vec == Vector3.ZERO:
             continue
         var angle = deg_to_rad(data.get("default_deg", 0.0))
@@ -381,12 +381,41 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
         if skeleton.get_bone_parent(j) == bone_idx:
             _apply_bone_recursive(skeleton, j, global_pose, rotations)
 
-func _axis_to_vector(axis: String) -> Vector3:
+func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
+    var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton)
     if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
-        return Vector3(1, 0, 0)
+        return basis.x
     elif axis == "left_right":
-        return Vector3(0, 1, 0)
+        return basis.y
     elif axis in ["tilt", "roll_in_out", "twist"]:
-        return Vector3(0, 0, 1)
+        return basis.z
     else:
         return Vector3.ZERO
+
+func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
+    var idx := skeleton.find_bone(bone_name)
+    if idx == -1:
+        return Basis()
+
+    var bone_global: Transform3D = _base_global_poses.get(bone_name, Transform3D.IDENTITY)
+    var z_axis: Vector3 = bone_global.basis.z
+
+    # Derive the bone direction from the first child if available.
+    for i in range(skeleton.get_bone_count()):
+        if skeleton.get_bone_parent(i) == idx:
+            var child_name := skeleton.get_bone_name(i)
+            var child_global: Transform3D = _base_global_poses.get(child_name, Transform3D.IDENTITY)
+            var dir := (child_global.origin - bone_global.origin)
+            if dir.length() > 0.0:
+                z_axis = dir.normalized()
+                break
+
+    var ref: Vector3 = Vector3.UP
+    if abs(z_axis.dot(ref)) > 0.99:
+        ref = skeleton.global_transform.basis.z
+
+    var x_axis := ref.cross(z_axis).normalized()
+    if x_axis.length() == 0.0:
+        x_axis = ref.cross(Vector3.RIGHT).normalized()
+    var y_axis := z_axis.cross(x_axis).normalized()
+    return Basis(x_axis, y_axis, z_axis)
