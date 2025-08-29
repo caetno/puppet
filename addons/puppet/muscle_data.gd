@@ -101,7 +101,16 @@ static func _bone_group(bone: String) -> String:
 static func _angle_limits(bone: String, axis: String = "") -> Array:
     var min_deg := -30.0
     var max_deg := 30.0
-    if bone.contains("UpperArm") or bone.contains("LowerArm") or bone.contains("Shoulder") or bone.contains("UpperLeg") or bone.contains("LowerLeg") or bone.contains("Foot"):
+    if bone.contains("UpperArm") or bone.contains("Shoulder") or bone.contains("UpperLeg") or bone.contains("Foot"):
+        min_deg = -90.0
+        max_deg = 90.0
+    elif bone.contains("LowerArm") and axis == "front_back":
+        min_deg = 0.0
+        max_deg = 160.0
+    elif bone.contains("LowerLeg") and axis == "front_back":
+        min_deg = 0.0
+        max_deg = 150.0
+    elif bone.contains("LowerArm") or bone.contains("LowerLeg"):
         min_deg = -90.0
         max_deg = 90.0
     elif bone == "Neck" or bone == "Head":
