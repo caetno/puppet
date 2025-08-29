@@ -4,6 +4,7 @@ class_name MuscleWindow
 
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
+const DualSlider = preload("res://addons/puppet/dual_slider.gd")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
@@ -221,9 +222,19 @@ func _populate_list() -> void:
 
         for id in grouped[grp]:
             var data = _profile.muscles[id]
+            var container := VBoxContainer.new()
+            container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            content.add_child(container)
+
             var row2 := HBoxContainer.new()
             row2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            content.add_child(row2)
+            container.add_child(row2)
+
+            var toggle := Button.new()
+            toggle.toggle_mode = true
+            toggle.text = "\u25b6"
+            row2.add_child(toggle)
+
             var label2 := Label.new()
             label2.text = "%s / %s" % [data.get("bone_ref", ""), data.get("axis", "")]
             label2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -238,6 +249,21 @@ func _populate_list() -> void:
             slider2.value_changed.connect(_on_slider_changed.bind(id))
             row2.add_child(slider2)
             _sliders[id] = slider2
+
+            var limit := DualSlider.new()
+            limit.visible = false
+            limit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            limit.min_value = -180.0
+            limit.max_value = 180.0
+            limit.set_from_muscle(data)
+            container.add_child(limit)
+
+            toggle.pressed.connect(func():
+                limit.visible = toggle.button_pressed
+                toggle.text = "\u25bc" if toggle.button_pressed else "\u25b6"
+            )
+
+            limit.range_changed.connect(_on_limit_changed.bind(id, slider2))
 
 func _on_viewport_input(event: InputEvent) -> void:
     if event is InputEventMouseButton:
@@ -259,6 +285,19 @@ func _on_slider_changed(value: float, id: String) -> void:
         var muscle = _profile.muscles[id]
         muscle["default_deg"] = value
         _apply_all_muscles()
+
+func _on_limit_changed(lower: float, upper: float, id: String, slider: HSlider) -> void:
+    if not _profile.muscles.has(id):
+        return
+    var muscle = _profile.muscles[id]
+    muscle["min_deg"] = lower
+    muscle["max_deg"] = upper
+    slider.min_value = lower
+    slider.max_value = upper
+    var deg := clamp(muscle.get("default_deg", 0.0), lower, upper)
+    muscle["default_deg"] = deg
+    slider.set_value_no_signal(deg)
+    _apply_all_muscles()
 
 func _on_group_slider_changed(value: float, group_name: String) -> void:
     if not _group_muscles.has(group_name):
