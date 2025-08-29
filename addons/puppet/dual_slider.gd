@@ -43,6 +43,7 @@ func _ready() -> void:
     _right_handle.color = Color.WHITE
     _right_handle.custom_minimum_size = Vector2(8, 16)
     _right_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
     add_child(_right_handle)
     mouse_filter = Control.MOUSE_FILTER_PASS
     _update_handles()
@@ -57,6 +58,7 @@ func _gui_input(event: InputEvent) -> void:
             if Rect2(_left_handle.position, _left_handle.size).has_point(event.position):
                 _dragging_left = true
             elif Rect2(_right_handle.position, _right_handle.size).has_point(event.position):
+
                 _dragging_right = true
         else:
             _dragging_left = false
