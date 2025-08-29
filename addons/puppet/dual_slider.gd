@@ -36,15 +36,19 @@ var _dragging_right := false
 @onready var _right_handle := ColorRect.new()
 
 func _ready() -> void:
+    custom_minimum_size = Vector2(0, 24)
     _left_handle.color = Color.WHITE
-    _left_handle.custom_minimum_size = Vector2(8, 16)
+    _left_handle.custom_minimum_size = Vector2(12, 24)
+    _left_handle.size = _left_handle.custom_minimum_size
     _left_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(_left_handle)
     _right_handle.color = Color.WHITE
-    _right_handle.custom_minimum_size = Vector2(8, 16)
+    _right_handle.custom_minimum_size = Vector2(12, 24)
+    _right_handle.size = _right_handle.custom_minimum_size
     _right_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(_right_handle)
-    mouse_filter = Control.MOUSE_FILTER_PASS
+    mouse_filter = Control.MOUSE_FILTER_STOP
+
     _update_handles()
 
 func _notification(what: int) -> void:
@@ -56,13 +60,16 @@ func _gui_input(event: InputEvent) -> void:
         if event.pressed:
             if Rect2(_left_handle.position, _left_handle.size).has_point(event.position):
                 _dragging_left = true
+                accept_event()
             elif Rect2(_right_handle.position, _right_handle.size).has_point(event.position):
                 _dragging_right = true
+                accept_event()
         else:
             _dragging_left = false
             _dragging_right = false
     elif event is InputEventMouseMotion:
         if _dragging_left or _dragging_right:
+            accept_event()
             var t := clamp(event.position.x / size.x, 0.0, 1.0)
             var val := lerp(min_value, max_value, t)
             if _dragging_left:
