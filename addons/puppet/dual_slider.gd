@@ -48,7 +48,6 @@ func _ready() -> void:
     _right_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(_right_handle)
     mouse_filter = Control.MOUSE_FILTER_STOP
-
     _update_handles()
 
 func _notification(what: int) -> void:

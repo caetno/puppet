@@ -50,10 +50,10 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         parent.move_child(new_joint, idx)
         old_joint.queue_free()
 
-        # Configure default angular limits on the three joint axes.  Godot
-        # requires the axis vectors to be normalised before limits are enabled,
-        # so derive them from the joint's basis and store them explicitly.
-        var basis := new_joint.transform.basis.orthonormalized()
+        # Configure the joint frame so X is the sideways axis, Y is forward and
+        # Z follows the bone direction.  This mirrors Unity's humanoid setup
+        # which derives the frame from the bone and its child direction.
+        var basis := _joint_basis_from_bones(new_joint, skeleton)
         new_joint.transform.basis = basis
         new_joint.set("angular_limit_x/axis", basis.x)
         new_joint.set("angular_limit_y/axis", basis.y)
@@ -70,6 +70,30 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         new_joint.set("angular_limit_z/upper_angle", PI)
 
 
+# Builds a joint basis from the connected bones.  The Z axis follows the bone
+# direction, Y points forward using the skeleton orientation as reference and X
+# is the sideways axis.  This mirrors Unity's approach of deriving joint frames
+# from the bone and its child direction.
+static func _joint_basis_from_bones(joint: Generic6DOFJoint3D, skeleton: Skeleton3D) -> Basis:
+    var z_axis: Vector3 = joint.transform.basis.z
+    var a: Node3D = joint.get_node_or_null(joint.node_a) as Node3D
+    var b: Node3D = joint.get_node_or_null(joint.node_b) as Node3D
+    if a and b:
+        var dir := (b.global_transform.origin - a.global_transform.origin).normalized()
+        if dir.length() > 0.0:
+            z_axis = dir
+
+    var ref: Vector3 = Vector3.UP
+    if abs(z_axis.dot(ref)) > 0.99:
+        ref = skeleton.global_transform.basis.z
+
+    var x_axis := ref.cross(z_axis).normalized()
+    if x_axis.length() == 0.0:
+        x_axis = ref.cross(Vector3.RIGHT).normalized()
+    var y_axis := z_axis.cross(x_axis).normalized()
+    return Basis(x_axis, y_axis, z_axis)
+
+# -- Limit application ------------------------------------------------------
 # -- Limit application ------------------------------------------------------
 # Reads limit information from a `MuscleProfile` and applies it to the 6‑DOF
 # joints generated above.  Each muscle entry defines a bone, an axis and the
