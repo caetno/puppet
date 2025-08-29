@@ -388,7 +388,7 @@ func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> V
     elif axis == "left_right":
         return basis.y
     elif axis in ["tilt", "roll_in_out", "twist"]:
-        return basis.z
+        return -basis.z
     else:
         return Vector3.ZERO
 
@@ -398,7 +398,7 @@ func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis
         return Basis()
 
     var bone_global: Transform3D = _base_global_poses.get(bone_name, Transform3D.IDENTITY)
-    var z_axis: Vector3 = bone_global.basis.z
+    var z_axis: Vector3 = -bone_global.basis.z
 
     # Derive the bone direction from the first child if available.
     for i in range(skeleton.get_bone_count()):
@@ -407,15 +407,16 @@ func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis
             var child_global: Transform3D = _base_global_poses.get(child_name, Transform3D.IDENTITY)
             var dir := (child_global.origin - bone_global.origin)
             if dir.length() > 0.0:
-                z_axis = dir.normalized()
+                z_axis = -dir.normalized()
                 break
 
     var ref: Vector3 = Vector3.UP
     if abs(z_axis.dot(ref)) > 0.99:
-        ref = skeleton.global_transform.basis.z
+        ref = skeleton.global_transform.basis.x
 
     var x_axis := ref.cross(z_axis).normalized()
     if x_axis.length() == 0.0:
-        x_axis = ref.cross(Vector3.RIGHT).normalized()
+        ref = skeleton.global_transform.basis.z
+        x_axis = ref.cross(z_axis).normalized()
     var y_axis := z_axis.cross(x_axis).normalized()
     return Basis(x_axis, y_axis, z_axis)
