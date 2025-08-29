@@ -359,7 +359,7 @@ func _apply_all_muscles() -> void:
                 push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
                 _warned_bones[bone_name] = true
             continue
-        var axis_vec = _axis_to_vector(data.get("axis", ""))
+        var axis_vec = _axis_to_vector(data.get("axis", ""), bone_name)
         if axis_vec == Vector3.ZERO:
             continue
         var angle = deg_to_rad(data.get("default_deg", 0.0))
@@ -381,12 +381,14 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
         if skeleton.get_bone_parent(j) == bone_idx:
             _apply_bone_recursive(skeleton, j, global_pose, rotations)
 
-func _axis_to_vector(axis: String) -> Vector3:
+func _axis_to_vector(axis: String, bone_name: String) -> Vector3:
+    var pose: Transform3D = _base_local_poses.get(bone_name, Transform3D.IDENTITY)
+    var basis: Basis = pose.basis
     if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
-        return Vector3(1, 0, 0)
+        return basis.x
     elif axis == "left_right":
-        return Vector3(0, 1, 0)
+        return basis.y
     elif axis in ["tilt", "roll_in_out", "twist"]:
-        return Vector3(0, 0, 1)
+        return basis.z
     else:
         return Vector3.ZERO
