@@ -38,9 +38,12 @@ var _dragging_right := false
 func _ready() -> void:
     _left_handle.color = Color.WHITE
     _left_handle.custom_minimum_size = Vector2(8, 16)
+    _left_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(_left_handle)
     _right_handle.color = Color.WHITE
     _right_handle.custom_minimum_size = Vector2(8, 16)
+    _right_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
     add_child(_right_handle)
     mouse_filter = Control.MOUSE_FILTER_PASS
     _update_handles()
@@ -52,9 +55,10 @@ func _notification(what: int) -> void:
 func _gui_input(event: InputEvent) -> void:
     if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
         if event.pressed:
-            if _left_handle.get_global_rect().has_point(event.position):
+            if Rect2(_left_handle.position, _left_handle.size).has_point(event.position):
                 _dragging_left = true
-            elif _right_handle.get_global_rect().has_point(event.position):
+            elif Rect2(_right_handle.position, _right_handle.size).has_point(event.position):
+
                 _dragging_right = true
         else:
             _dragging_left = false
