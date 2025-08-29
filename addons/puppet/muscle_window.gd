@@ -5,6 +5,7 @@ class_name MuscleWindow
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 const DualSlider = preload("res://addons/puppet/dual_slider.gd")
+const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
@@ -383,12 +384,13 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 
 func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
     var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton)
+    var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name)
     if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
-        return basis.x
+        return basis.x * sign.x
     elif axis == "left_right":
-        return basis.y
+        return basis.y * sign.y
     elif axis in ["tilt", "roll_in_out", "twist"]:
-        return -basis.z
+        return -basis.z * sign.z
     else:
         return Vector3.ZERO
 
@@ -419,4 +421,5 @@ func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis
         ref = skeleton.global_transform.basis.z
         x_axis = ref.cross(z_axis).normalized()
     var y_axis := z_axis.cross(x_axis).normalized()
-    return Basis(x_axis, y_axis, z_axis)
+    var basis := Basis(x_axis, y_axis, z_axis)
+    return BoneOrientation.apply_rotations(bone_name, basis)

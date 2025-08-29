@@ -2,6 +2,7 @@
 class_name JointConverter
 
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 
 ## Utility functions for converting joints and applying limits.
 
@@ -54,10 +55,13 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         # Z follows the bone direction.  This mirrors Unity's humanoid setup
         # which derives the frame from the bone and its child direction.
         var basis := _joint_basis_from_bones(new_joint, skeleton)
+        var bone_name := new_joint.name
+        basis = BoneOrientation.apply_rotations(bone_name, basis)
         new_joint.transform.basis = basis
-        new_joint.set("angular_limit_x/axis", basis.x)
-        new_joint.set("angular_limit_y/axis", basis.y)
-        new_joint.set("angular_limit_z/axis", basis.z)
+        var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name)
+        new_joint.set("angular_limit_x/axis", basis.x * sign.x)
+        new_joint.set("angular_limit_y/axis", basis.y * sign.y)
+        new_joint.set("angular_limit_z/axis", basis.z * sign.z)
 
         new_joint.set("angular_limit_x/enabled", true)
         new_joint.set("angular_limit_y/enabled", true)
