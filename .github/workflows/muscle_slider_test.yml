@@ -1,0 +1,24 @@
+name: Muscle Slider Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: '4.4.1'
+          include-templates: false
+      - name: Run muscle slider test
+        run: |
+          set -o pipefail
+          godot --headless -s res://addons/puppet/tests/muscle_slider_test.gd 2>&1 | tee godot.log
+          if grep -i "leaks" godot.log; then
+            echo "Memory leaks detected"
+            exit 1
+          fi
