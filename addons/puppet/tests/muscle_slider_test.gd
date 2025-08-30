@@ -1,7 +1,10 @@
 extends SceneTree
 
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
-const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const MuscleWindow = preload("res://addons/puppet/muscle_window.gd")
+
+var _mw: MuscleWindow
+
 
 func _init() -> void:
     var ybot_scene: PackedScene = load("res://addons/puppet/tests/muscle_slider_test.tscn")
@@ -21,6 +24,9 @@ func _run_test(ragdoll: Node3D) -> void:
         var name = skeleton.get_bone_name(i)
         base_global[name] = skeleton.get_bone_global_pose(i)
 
+    _mw = MuscleWindow.new()
+    _mw._base_global_poses = base_global
+
     var test_angle := 10.0
     var results := {}
     var order := []
@@ -36,7 +42,7 @@ func _run_test(ragdoll: Node3D) -> void:
 
         skeleton.clear_bones_global_pose_override()
 
-        var axis_vec: Vector3 = _axis_to_vector(axis_name, bone_name, skeleton, base_global).normalized()
+        var axis_vec: Vector3 = _mw._axis_to_vector(axis_name, bone_name, skeleton).normalized()
         var rot := Basis(axis_vec, deg_to_rad(test_angle))
         var pose: Transform3D = base_global[bone_name]
         pose.basis = pose.basis * rot
@@ -45,7 +51,8 @@ func _run_test(ragdoll: Node3D) -> void:
         var new_pose: Transform3D = skeleton.get_bone_global_pose(idx)
         var delta_basis: Basis = base_global[bone_name].basis.inverse() * new_pose.basis
         var delta_quat: Quaternion = Quaternion(delta_basis.orthonormalized())
-        var alignment: float = axis_vec.dot(_canonical_axis(axis_name, bone_name, skeleton, base_global))
+        var alignment: float = axis_vec.dot(_canonical_axis(axis_name, bone_name, skeleton))
+
         var angle_deg: float = rad_to_deg(delta_quat.get_angle())
         results[id] = {
             "id": id,
@@ -86,61 +93,14 @@ func _run_test(ragdoll: Node3D) -> void:
 
     call_deferred("quit", 0 if all_ok else 1)
 
-func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Vector3:
-    var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton, base_global)
-    var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name)
+func _canonical_axis(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
+    var basis: Basis = _mw._bone_basis_from_skeleton(bone_name, skeleton)
     match axis:
-        "front_back", "nod", "open_close":
-            return basis.y * sign.y
-        "down_up":
-            return basis.x * sign.x
-        "left_right", "tilt", "finger_open_close":
-            return basis.x * sign.x
-        "roll_in_out", "twist":
-            return -basis.z * sign.z
-        _:
-            return Vector3.ZERO
-
-func _canonical_axis(axis: String, bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Vector3:
-    var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton, base_global)
-    match axis:
-        "front_back", "nod", "open_close":
+        "front_back", "nod", "finger_open_close", "open_close":
+            return basis.x
+        "left_right", "down_up", "tilt":
             return basis.y
-        "down_up":
-            return basis.x
-        "left_right", "tilt", "finger_open_close":
-            return basis.x
         "roll_in_out", "twist":
             return -basis.z
         _:
             return Vector3.ZERO
-
-
-func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Basis:
-    var idx := skeleton.find_bone(bone_name)
-    if idx == -1:
-        return Basis()
-
-    var bone_global: Transform3D = base_global.get(bone_name, Transform3D.IDENTITY)
-    var z_axis: Vector3 = -bone_global.basis.z
-
-    for i in range(skeleton.get_bone_count()):
-        if skeleton.get_bone_parent(i) == idx:
-            var child_name := skeleton.get_bone_name(i)
-            var child_global: Transform3D = base_global.get(child_name, Transform3D.IDENTITY)
-            var dir := (child_global.origin - bone_global.origin)
-            if dir.length() > 0.0:
-                z_axis = -dir.normalized()
-                break
-
-    var ref: Vector3 = Vector3.UP
-    if abs(z_axis.dot(ref)) > 0.99:
-        ref = skeleton.global_transform.basis.x
-
-    var x_axis := ref.cross(z_axis).normalized()
-    if x_axis.length() == 0.0:
-        ref = skeleton.global_transform.basis.z
-        x_axis = ref.cross(z_axis).normalized()
-    var y_axis := z_axis.cross(x_axis).normalized()
-    var basis := Basis(x_axis, y_axis, z_axis)
-    return BoneOrientation.apply_rotations(bone_name, basis)

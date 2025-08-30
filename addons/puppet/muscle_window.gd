@@ -385,11 +385,11 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
 	var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton)
 	var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name)
-	if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
+	if axis in ["front_back", "nod", "finger_open_close", "open_close"]:
 		return basis.x * sign.x
-	elif axis == "left_right":
+	elif axis in ["left_right", "down_up", "tilt"]:
 		return basis.y * sign.y
-	elif axis in ["tilt", "roll_in_out", "twist"]:
+	elif axis in ["roll_in_out", "twist"]:
 		return -basis.z * sign.z
 	else:
 		return Vector3.ZERO
