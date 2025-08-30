@@ -5,6 +5,7 @@ const MuscleWindow = preload("res://addons/puppet/muscle_window.gd")
 
 var _mw: MuscleWindow
 
+
 func _init() -> void:
     var ybot_scene: PackedScene = load("res://addons/puppet/tests/muscle_slider_test.tscn")
     var ragdoll: Node3D = ybot_scene.instantiate()
@@ -51,6 +52,7 @@ func _run_test(ragdoll: Node3D) -> void:
         var delta_basis: Basis = base_global[bone_name].basis.inverse() * new_pose.basis
         var delta_quat: Quaternion = Quaternion(delta_basis.orthonormalized())
         var alignment: float = axis_vec.dot(_canonical_axis(axis_name, bone_name, skeleton))
+
         var angle_deg: float = rad_to_deg(delta_quat.get_angle())
         results[id] = {
             "id": id,
