@@ -15,9 +15,10 @@ const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 # `Generic6DOFJoint3D` while preserving the original attachment nodes and
 # transform.
 static func convert_to_6dof(skeleton: Skeleton3D) -> void:
-	if not skeleton:
+        BoneOrientation.load_cache()
+        if not skeleton:
 
-		return
+                return
 
 	# Collect all joints that need to be converted.  We gather them first so we
 	# can safely modify the scene tree while iterating.

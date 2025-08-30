@@ -2,151 +2,108 @@
 class_name BoneOrientation
 
 ## Stores pre/post rotation and limit sign data for humanoid bones.
-# These tables mirror Unity's internal avatar setup and allow the muscle
-# system to reproduce Unity's muscle axes.  The values here were derived
-# empirically from Unity's GetPreRotation / GetPostRotation / GetLimitSign
-# outputs and only cover the common humanoid bones.  Bones not listed fall
-# back to the identity rotation and a positive limit sign on all axes.
+# The data can be generated from Unity's Avatar API and cached as JSON so the
+# addon can use the information without requiring Unity at runtime.
 
-# Pre‑rotations applied before constructing the bone basis.
-const PRE_ROTATIONS := {
-    # Upper arms need to be aligned so the X axis points forward similar to
-    # Unity's internal representation.  Left and right sides are mirrored.
-    "LeftUpperArm": Basis(Vector3.FORWARD, deg_to_rad(90.0)),
-    "RightUpperArm": Basis(Vector3.FORWARD, deg_to_rad(-90.0)),
-    # Upper legs are aligned so that X points forward.
-    "LeftUpperLeg": Basis(Vector3.FORWARD, deg_to_rad(90.0)),
-    "RightUpperLeg": Basis(Vector3.FORWARD, deg_to_rad(-90.0)),
-    # Fingers use Unity's default orientation so they retain identity pre-rotations.
-    "LeftThumbMetacarpal": Basis(),
-    "LeftThumbProximal": Basis(),
-    "LeftThumbDistal": Basis(),
-    "LeftIndexProximal": Basis(),
-    "LeftIndexIntermediate": Basis(),
-    "LeftIndexDistal": Basis(),
-    "LeftMiddleProximal": Basis(),
-    "LeftMiddleIntermediate": Basis(),
-    "LeftMiddleDistal": Basis(),
-    "LeftRingProximal": Basis(),
-    "LeftRingIntermediate": Basis(),
-    "LeftRingDistal": Basis(),
-    "LeftLittleProximal": Basis(),
-    "LeftLittleIntermediate": Basis(),
-    "LeftLittleDistal": Basis(),
-    "RightThumbMetacarpal": Basis(),
-    "RightThumbProximal": Basis(),
-    "RightThumbDistal": Basis(),
-    "RightIndexProximal": Basis(),
-    "RightIndexIntermediate": Basis(),
-    "RightIndexDistal": Basis(),
-    "RightMiddleProximal": Basis(),
-    "RightMiddleIntermediate": Basis(),
-    "RightMiddleDistal": Basis(),
-    "RightRingProximal": Basis(),
-    "RightRingIntermediate": Basis(),
-    "RightRingDistal": Basis(),
-    "RightLittleProximal": Basis(),
-    "RightLittleIntermediate": Basis(),
-    "RightLittleDistal": Basis(),
-}
+const CACHE_PATH := "res://addons/puppet/bone_orientation_data.json"
 
-# Post rotations applied after the basis has been generated from the bone
-# direction.
-const POST_ROTATIONS := {
-    # Wrists and ankles require a quarter turn so the twist axis matches
-    # Unity's internal Z axis.
-    "LeftLowerArm": Basis(Vector3.RIGHT, deg_to_rad(90.0)),
-    "RightLowerArm": Basis(Vector3.RIGHT, deg_to_rad(-90.0)),
-    "LeftLowerLeg": Basis(Vector3.RIGHT, deg_to_rad(90.0)),
-    "RightLowerLeg": Basis(Vector3.RIGHT, deg_to_rad(-90.0)),
-    # Finger bones do not require post rotations in Unity's humanoid setup.
-    "LeftThumbMetacarpal": Basis(),
-    "LeftThumbProximal": Basis(),
-    "LeftThumbDistal": Basis(),
-    "LeftIndexProximal": Basis(),
-    "LeftIndexIntermediate": Basis(),
-    "LeftIndexDistal": Basis(),
-    "LeftMiddleProximal": Basis(),
-    "LeftMiddleIntermediate": Basis(),
-    "LeftMiddleDistal": Basis(),
-    "LeftRingProximal": Basis(),
-    "LeftRingIntermediate": Basis(),
-    "LeftRingDistal": Basis(),
-    "LeftLittleProximal": Basis(),
-    "LeftLittleIntermediate": Basis(),
-    "LeftLittleDistal": Basis(),
-    "RightThumbMetacarpal": Basis(),
-    "RightThumbProximal": Basis(),
-    "RightThumbDistal": Basis(),
-    "RightIndexProximal": Basis(),
-    "RightIndexIntermediate": Basis(),
-    "RightIndexDistal": Basis(),
-    "RightMiddleProximal": Basis(),
-    "RightMiddleIntermediate": Basis(),
-    "RightMiddleDistal": Basis(),
-    "RightRingProximal": Basis(),
-    "RightRingIntermediate": Basis(),
-    "RightRingDistal": Basis(),
-    "RightLittleProximal": Basis(),
-    "RightLittleIntermediate": Basis(),
-    "RightLittleDistal": Basis(),
-}
+static var _pre_rotations: Dictionary = {}
+static var _post_rotations: Dictionary = {}
+static var _limit_signs: Dictionary = {}
+static var _loaded := false
 
-# Limit sign adjustments.  These flip the meaning of positive rotation for
-# certain bones so the resulting angles match Unity.  Each vector component
-# corresponds to the X, Y and Z axes respectively.
-const LIMIT_SIGNS := {
-    "LeftUpperArm": Vector3(-1, 1, -1),
-    "LeftLowerArm": Vector3(1, 1, -1),
-    "LeftHand": Vector3(-1, 1, -1),
-    "LeftUpperLeg": Vector3(-1, 1, -1),
-    "LeftLowerLeg": Vector3(-1, 1, -1),
-    "LeftFoot": Vector3(-1, 1, -1),
-    "RightLowerArm": Vector3.ONE,
-    "RightUpperLeg": Vector3.ONE,
-    "RightLowerLeg": Vector3.ONE,
-    "RightFoot": Vector3.ONE,
-    # Fingers mirror Unity's limit sign convention.
-    "LeftThumbMetacarpal": Vector3(-1, 1, -1),
-    "LeftThumbProximal": Vector3(-1, 1, -1),
-    "LeftThumbDistal": Vector3(-1, 1, -1),
-    "LeftIndexProximal": Vector3(-1, 1, -1),
-    "LeftIndexIntermediate": Vector3(-1, 1, -1),
-    "LeftIndexDistal": Vector3(-1, 1, -1),
-    "LeftMiddleProximal": Vector3(-1, 1, -1),
-    "LeftMiddleIntermediate": Vector3(-1, 1, -1),
-    "LeftMiddleDistal": Vector3(-1, 1, -1),
-    "LeftRingProximal": Vector3(-1, 1, -1),
-    "LeftRingIntermediate": Vector3(-1, 1, -1),
-    "LeftRingDistal": Vector3(-1, 1, -1),
-    "LeftLittleProximal": Vector3(-1, 1, -1),
-    "LeftLittleIntermediate": Vector3(-1, 1, -1),
-    "LeftLittleDistal": Vector3(-1, 1, -1),
-    "RightThumbMetacarpal": Vector3.ONE,
-    "RightThumbProximal": Vector3.ONE,
-    "RightThumbDistal": Vector3.ONE,
-    "RightIndexProximal": Vector3.ONE,
-    "RightIndexIntermediate": Vector3.ONE,
-    "RightIndexDistal": Vector3.ONE,
-    "RightMiddleProximal": Vector3.ONE,
-    "RightMiddleIntermediate": Vector3.ONE,
-    "RightMiddleDistal": Vector3.ONE,
-    "RightRingProximal": Vector3.ONE,
-    "RightRingIntermediate": Vector3.ONE,
-    "RightRingDistal": Vector3.ONE,
-    "RightLittleProximal": Vector3.ONE,
-    "RightLittleIntermediate": Vector3.ONE,
-    "RightLittleDistal": Vector3.ONE,
-}
+## Ensures the cached orientation data is loaded from disk.
+static func load_cache(path: String = CACHE_PATH) -> void:
+    if _loaded:
+        return
+    _loaded = true
+    if not FileAccess.file_exists(path):
+        return
+    var file := FileAccess.open(path, FileAccess.READ)
+    if not file:
+        return
+    var json := JSON.new()
+    if json.parse(file.get_as_text()) != OK:
+        return
+    var data: Dictionary = json.data
+    _pre_rotations = _parse_basis_dict(data.get("pre_rotations", {}))
+    _post_rotations = _parse_basis_dict(data.get("post_rotations", {}))
+    _limit_signs = _parse_vector_dict(data.get("limit_signs", {}))
+
+## Generates orientation data from a Unity export and saves it to the cache.
+# `unity_json_path` should be a JSON file produced by a Unity editor script that
+# queries Avatar.GetPreRotation / GetPostRotation / GetLimitSign for each bone.
+static func generate_from_unity(unity_json_path: String, cache_path: String = CACHE_PATH) -> void:
+    var file := FileAccess.open(unity_json_path, FileAccess.READ)
+    if not file:
+        push_warning("Unity export file not found: %s" % unity_json_path)
+        return
+    var json := JSON.new()
+    if json.parse(file.get_as_text()) != OK:
+        push_error("Failed to parse Unity export JSON: %s" % unity_json_path)
+        return
+    var data: Dictionary = json.data
+    _pre_rotations = _parse_basis_dict(data.get("preRotations", data.get("pre_rotations", {})))
+    _post_rotations = _parse_basis_dict(data.get("postRotations", data.get("post_rotations", {})))
+    _limit_signs = _parse_vector_dict(data.get("limitSigns", data.get("limit_signs", {})))
+    _save_cache(cache_path)
 
 static func get_pre_rotation(bone: String) -> Basis:
-    return PRE_ROTATIONS.get(bone, Basis())
+    load_cache()
+    return _pre_rotations.get(bone, Basis())
 
 static func get_post_rotation(bone: String) -> Basis:
-    return POST_ROTATIONS.get(bone, Basis())
+    load_cache()
+    return _post_rotations.get(bone, Basis())
 
 static func get_limit_sign(bone: String) -> Vector3:
-    return LIMIT_SIGNS.get(bone, Vector3.ONE)
+    load_cache()
+    return _limit_signs.get(bone, Vector3.ONE)
 
 static func apply_rotations(bone: String, basis: Basis) -> Basis:
     return get_pre_rotation(bone) * basis * get_post_rotation(bone)
+
+# -- Serialization helpers --------------------------------------------------
+
+static func _parse_basis_dict(src: Dictionary) -> Dictionary:
+    var result := {}
+    for k in src.keys():
+        var arr = src[k]
+        if arr is Array and arr.size() == 4:
+            var q := Quaternion(arr[0], arr[1], arr[2], arr[3])
+            result[k] = Basis(q)
+    return result
+
+static func _parse_vector_dict(src: Dictionary) -> Dictionary:
+    var result := {}
+    for k in src.keys():
+        var arr = src[k]
+        if arr is Array and arr.size() == 3:
+            result[k] = Vector3(arr[0], arr[1], arr[2])
+    return result
+
+static func _serialize_basis_dict(src: Dictionary) -> Dictionary:
+    var res := {}
+    for k in src.keys():
+        var b: Basis = src[k]
+        var q: Quaternion = Quaternion(b)
+        res[k] = [q.x, q.y, q.z, q.w]
+    return res
+
+static func _serialize_vector_dict(src: Dictionary) -> Dictionary:
+    var res := {}
+    for k in src.keys():
+        var v: Vector3 = src[k]
+        res[k] = [v.x, v.y, v.z]
+    return res
+
+static func _save_cache(path: String) -> void:
+    var data := {
+        "pre_rotations": _serialize_basis_dict(_pre_rotations),
+        "post_rotations": _serialize_basis_dict(_post_rotations),
+        "limit_signs": _serialize_vector_dict(_limit_signs),
+    }
+    var file := FileAccess.open(path, FileAccess.WRITE)
+    if file:
+        file.store_string(JSON.stringify(data))
+        file.close()
