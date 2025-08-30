@@ -115,6 +115,7 @@ func _canonical_axis(axis: String, bone_name: String, skeleton: Skeleton3D, base
         _:
             return Vector3.ZERO
 
+
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Basis:
     var idx := skeleton.find_bone(bone_name)
     if idx == -1:
