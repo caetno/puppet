@@ -97,11 +97,12 @@ const POST_ROTATIONS := {
 # corresponds to the X, Y and Z axes respectively.
 const LIMIT_SIGNS := {
     "LeftUpperArm": Vector3(-1, 1, -1),
-    "LeftLowerArm": Vector3(-1, 1, -1),
+    "LeftLowerArm": Vector3(1, 1, -1),
     "LeftHand": Vector3(-1, 1, -1),
     "LeftUpperLeg": Vector3(-1, 1, -1),
     "LeftLowerLeg": Vector3(-1, 1, -1),
     "LeftFoot": Vector3(-1, 1, -1),
+    "RightLowerArm": Vector3.ONE,
     "RightUpperLeg": Vector3.ONE,
     "RightLowerLeg": Vector3.ONE,
     "RightFoot": Vector3.ONE,

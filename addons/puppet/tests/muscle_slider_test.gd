@@ -80,7 +80,24 @@ func _run_test(ragdoll: Node3D) -> void:
                     results[ids[j]]["ok"] = false
                     results[ids[j]]["dup_with"] = ids[i]
 
-    var all_ok := true
+    # Check that forearms bend upward for positive front_back values.
+    var forearm_ok := true
+    for side in ["Left", "Right"]:
+        var bone := "%sLowerArm" % side
+        var hand := "%sHand" % side
+        skeleton.clear_bones_global_pose_override()
+        var axis_vec := _mw._axis_to_vector("front_back", bone, skeleton).normalized()
+        var pose: Transform3D = base_global[bone]
+        pose.basis = pose.basis * Basis(axis_vec, deg_to_rad(test_angle))
+        skeleton.set_bone_global_pose_override(skeleton.find_bone(bone), pose, 1.0, true)
+        var hand_pose: Transform3D = skeleton.get_bone_global_pose(skeleton.find_bone(hand))
+        var diff: Vector3 = hand_pose.origin - base_global[hand].origin
+        if diff.y <= 0.0:
+            print("%s forearm bent downward for positive front_back" % side)
+            forearm_ok = false
+        skeleton.clear_bones_global_pose_override()
+
+    var all_ok := forearm_ok
     for id in order:
         var r = results[id]
         print("%s (%s %s): angle %.2f alignment %.2f %s%s" % [
