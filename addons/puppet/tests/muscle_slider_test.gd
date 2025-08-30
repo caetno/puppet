@@ -94,11 +94,11 @@ func _run_test(ragdoll: Node3D) -> void:
 func _canonical_axis(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
     var basis: Basis = _mw._bone_basis_from_skeleton(bone_name, skeleton)
     match axis:
-        "front_back", "nod", "down_up", "finger_open_close", "open_close":
+        "front_back", "nod", "finger_open_close", "open_close":
             return basis.x
-        "left_right":
+        "left_right", "down_up", "tilt":
             return basis.y
-        "tilt", "roll_in_out", "twist":
+        "roll_in_out", "twist":
             return -basis.z
         _:
             return Vector3.ZERO
