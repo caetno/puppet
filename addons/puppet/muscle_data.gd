@@ -25,11 +25,11 @@ const HUMANOID_BONES := [
 # Axes to create for each bone. Bones not listed default to a single twist axis.
 const BONE_AXES := {
 	"Hips": ["front_back", "left_right", "twist"],
-	"LeftUpperLeg": ["front_back", "left_right", "roll_in_out"],
+        "LeftUpperLeg": ["front_back", "roll_in_out", "left_right"],
 	"LeftLowerLeg": ["front_back", "roll_in_out"],
 	"LeftFoot": ["front_back", "twist"],
 	"LeftToes": ["front_back"],
-	"RightUpperLeg": ["front_back", "left_right", "roll_in_out"],
+        "RightUpperLeg": ["front_back", "roll_in_out", "left_right"],
 	"RightLowerLeg": ["front_back", "roll_in_out"],
 	"RightFoot": ["front_back", "twist"],
 	"RightToes": ["front_back"],
