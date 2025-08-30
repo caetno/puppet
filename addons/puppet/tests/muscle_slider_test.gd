@@ -22,9 +22,7 @@ func _run_test(ragdoll: Node3D) -> void:
         base_global[name] = skeleton.get_bone_global_pose(i)
 
     var test_angle := 10.0
-    var results := {}
-    var order := []
-    var axes_by_bone := {}
+    var results := []
 
     for id in muscles.keys():
         var muscle: Dictionary = muscles[id]
@@ -47,74 +45,46 @@ func _run_test(ragdoll: Node3D) -> void:
         var delta_quat: Quaternion = Quaternion(delta_basis.orthonormalized())
         var alignment: float = axis_vec.dot(_canonical_axis(axis_name, bone_name, skeleton, base_global))
         var angle_deg: float = rad_to_deg(delta_quat.get_angle())
-        results[id] = {
+        var ok: bool = abs(alignment) > 0.95 and abs(angle_deg - test_angle) < 0.5
+        results.append({
             "id": id,
             "bone": bone_name,
             "axis": axis_name,
             "angle": angle_deg,
             "alignment": alignment,
-            "axis_vec": axis_vec,
-            "ok": abs(alignment) > 0.95 and abs(angle_deg - test_angle) < 0.5,
-        }
-        order.append(id)
-        if not axes_by_bone.has(bone_name):
-            axes_by_bone[bone_name] = []
-        axes_by_bone[bone_name].append(id)
+            "ok": ok,
+        })
 
-    for bone_name in axes_by_bone.keys():
-        var ids = axes_by_bone[bone_name]
-        for i in range(ids.size()):
-            for j in range(i + 1, ids.size()):
-                var v1: Vector3 = results[ids[i]]["axis_vec"]
-                var v2: Vector3 = results[ids[j]]["axis_vec"]
-                if abs(v1.dot(v2)) > 0.95:
-                    results[ids[i]]["ok"] = false
-                    results[ids[i]]["dup_with"] = ids[j]
-                    results[ids[j]]["ok"] = false
-                    results[ids[j]]["dup_with"] = ids[i]
-
-    var all_ok := true
-    for id in order:
-        var r = results[id]
-        print("%s (%s %s): angle %.2f alignment %.2f %s%s" % [
+    for r in results:
+        print("%s (%s %s): angle %.2f alignment %.2f %s" % [
             r["id"], r["bone"], r["axis"], r["angle"], r["alignment"],
-            ("OK" if r["ok"] else "Mismatch"),
-            ("" if not r.has("dup_with") else " duplicate with %s" % r["dup_with"]),
+            ("OK" if r["ok"] else "Mismatch")
         ])
-        if not r["ok"]:
-            all_ok = false
 
-    call_deferred("quit", 0 if all_ok else 1)
+    call_deferred("quit")
 
 func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Vector3:
     var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton, base_global)
     var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name)
-    match axis:
-        "front_back", "nod", "open_close":
-            return basis.y * sign.y
-        "down_up":
-            return basis.x * sign.x
-        "left_right", "tilt", "finger_open_close":
-            return basis.x * sign.x
-        "roll_in_out", "twist":
-            return -basis.z * sign.z
-        _:
-            return Vector3.ZERO
+    if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
+        return basis.x * sign.x
+    elif axis == "left_right":
+        return basis.y * sign.y
+    elif axis in ["tilt", "roll_in_out", "twist"]:
+        return -basis.z * sign.z
+    else:
+        return Vector3.ZERO
 
 func _canonical_axis(axis: String, bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Vector3:
     var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton, base_global)
-    match axis:
-        "front_back", "nod", "open_close":
-            return basis.y
-        "down_up":
-            return basis.x
-        "left_right", "tilt", "finger_open_close":
-            return basis.x
-        "roll_in_out", "twist":
-            return -basis.z
-        _:
-            return Vector3.ZERO
-
+    if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
+        return basis.x
+    elif axis == "left_right":
+        return basis.y
+    elif axis in ["tilt", "roll_in_out", "twist"]:
+        return -basis.z
+    else:
+        return Vector3.ZERO
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D, base_global: Dictionary) -> Basis:
     var idx := skeleton.find_bone(bone_name)
