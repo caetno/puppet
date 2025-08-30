@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://cjhqcptw233ht"]
+
+[ext_resource type="PackedScene" uid="uid://6rxlgdgqm0sg" path="res://local/X Bot.fbx" id="1_fa3s7"]
+
+[node name="Ragdoll" type="Node3D"]
+
+[node name="X Bot" parent="." instance=ExtResource("1_fa3s7")]
+
+[editable path="X Bot"]
