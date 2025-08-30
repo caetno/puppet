@@ -102,6 +102,9 @@ const LIMIT_SIGNS := {
     "LeftUpperLeg": Vector3(-1, 1, -1),
     "LeftLowerLeg": Vector3(-1, 1, -1),
     "LeftFoot": Vector3(-1, 1, -1),
+    "RightUpperLeg": Vector3.ONE,
+    "RightLowerLeg": Vector3.ONE,
+    "RightFoot": Vector3.ONE,
     # Fingers mirror Unity's limit sign convention.
     "LeftThumbMetacarpal": Vector3(-1, 1, -1),
     "LeftThumbProximal": Vector3(-1, 1, -1),
