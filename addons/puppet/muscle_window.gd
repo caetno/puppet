@@ -10,12 +10,12 @@ const JointConverter = preload("res://addons/puppet/joint_converter.gd")
 
 # Per-bone degree-of-freedom rotation order mappings.
 const DOF_ORDER := {
-        "Neck": ["z", "x", "y"],
-        "Head": ["z", "x", "y"],
-        "LeftUpperArm": ["x", "z", "y"],
-        "RightUpperArm": ["x", "z", "y"],
-        "LeftUpperLeg": ["x", "z", "y"],
-        "RightUpperLeg": ["x", "z", "y"],
+		"Neck": ["z", "x", "y"],
+		"Head": ["z", "x", "y"],
+		"LeftUpperArm": ["x", "z", "y"],
+		"RightUpperArm": ["x", "z", "y"],
+		"LeftUpperLeg": ["x", "z", "y"],
+		"RightUpperLeg": ["x", "z", "y"],
 }
 
 ## Editor window for muscle configuration.
@@ -426,8 +426,8 @@ func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
 
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
-        var idx := skeleton.find_bone(bone_name)
-        if idx == -1:
-                return Basis()
+	var idx := skeleton.find_bone(bone_name)
+	if idx == -1:
+		return Basis()
 	var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
 	return BoneOrientation.apply_rotations(bone_name, basis, skeleton)
