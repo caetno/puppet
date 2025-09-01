@@ -390,8 +390,8 @@ func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> V
 		return basis.x * sign.x
 	elif axis in ["left_right", "down_up", "tilt"]:
 		return basis.y * sign.y
-	elif axis in ["roll_in_out", "twist"]:
-		return -basis.z * sign.z
+        elif axis in ["roll_in_out", "twist"]:
+                return basis.z * sign.z
 	else:
 		return Vector3.ZERO
 
