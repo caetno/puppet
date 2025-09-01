@@ -6,6 +6,7 @@ const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 const DualSlider = preload("res://addons/puppet/dual_slider.gd")
 const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const JointConverter = preload("res://addons/puppet/joint_converter.gd")
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
@@ -399,14 +400,7 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 			_apply_bone_recursive(skeleton, j, global_pose, rotations)
 
 func _axis_to_index(axis: String) -> int:
-        if axis in ["front_back", "nod", "finger_open_close", "open_close"]:
-                return 0
-        elif axis in ["left_right", "down_up", "tilt", "finger_in_out"]:
-                return 1
-        elif axis in ["roll_in_out", "twist"]:
-                return 2
-        else:
-                return -1
+        return JointConverter.axis_to_index(axis)
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
 	var idx := skeleton.find_bone(bone_name)
