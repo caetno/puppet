@@ -388,10 +388,10 @@ func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> V
 	var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
 	if axis in ["front_back", "nod", "finger_open_close", "open_close"]:
 		return basis.x * sign.x
-	elif axis in ["left_right", "down_up", "tilt"]:
+	elif axis in ["left_right", "down_up", "tilt", "finger_in_out"]:
 		return basis.y * sign.y
-        elif axis in ["roll_in_out", "twist"]:
-                return basis.z * sign.z
+	elif axis in ["roll_in_out", "twist"]:
+		return basis.z * sign.z
 	else:
 		return Vector3.ZERO
 
