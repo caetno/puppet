@@ -260,8 +260,12 @@ static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -
 	var z_axis := hand_dir.cross(palm_normal).normalized()
 	var y_axis := z_axis.cross(hand_dir).normalized()
 
+	# Preserve a right-handed basis. When the forearm points opposite the
+	# reference X axis (left hand), flipping all three axes would mirror the
+	# transform and yield a determinant of -1. Instead flip only Y and Z so
+	# X remains aligned with the actual hand direction while keeping the
+	# basis rotation-only.
 	if hand_dir.dot(ref.x) < 0.0:
-		hand_dir = -hand_dir
 		y_axis = -y_axis
 		z_axis = -z_axis
 
