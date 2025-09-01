@@ -190,7 +190,56 @@ static func _derive_bone_basis(skeleton: Skeleton3D, bone: int, ref_basis: Basis
 static func joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
     load_cache(CACHE_PATH, skeleton)
     var ref := _reference_basis_from_skeleton(skeleton)
+    ref = _align_hand_reference(skeleton, bone, ref)
     return _derive_bone_basis(skeleton, bone, ref)
+
+## Adjusts the reference basis so finger curling follows the forearm direction.
+## Unity's avatar mapper re‑orients the hand using the vector between the lower
+## arm and the hand before mapping finger bones.  This mirrors that behavior so
+## the `finger_open_close` muscle curls the fingers instead of moving them
+## sideways.
+static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -> Basis:
+    if not skeleton:
+        return ref
+
+    var left_hand := skeleton.find_bone("LeftHand")
+    var right_hand := skeleton.find_bone("RightHand")
+
+    var source_axis := Vector3.ZERO
+    var target_axis := Vector3.ZERO
+
+    if left_hand != -1 and _is_descendant_of(skeleton, bone, left_hand):
+        var lower := skeleton.find_bone("LeftLowerArm")
+        if lower == -1:
+            return ref
+        var lower_pos := _get_global_rest(skeleton, lower).origin
+        var hand_pos := _get_global_rest(skeleton, left_hand).origin
+        target_axis = (hand_pos - lower_pos).normalized()
+        source_axis = -ref.x
+    elif right_hand != -1 and _is_descendant_of(skeleton, bone, right_hand):
+        var lower := skeleton.find_bone("RightLowerArm")
+        if lower == -1:
+            return ref
+        var lower_pos := _get_global_rest(skeleton, lower).origin
+        var hand_pos := _get_global_rest(skeleton, right_hand).origin
+        target_axis = (hand_pos - lower_pos).normalized()
+        source_axis = ref.x
+    else:
+        return ref
+
+    if source_axis.length() == 0.0 or target_axis.length() == 0.0:
+        return ref
+
+    var q := Quaternion(source_axis, target_axis)
+    return Basis(q) * ref
+
+static func _is_descendant_of(skeleton: Skeleton3D, bone: int, ancestor: int) -> bool:
+    var p := bone
+    while p != -1:
+        if p == ancestor:
+            return true
+        p = skeleton.get_bone_parent(p)
+    return false
 
 # -- Serialization helpers --------------------------------------------------
 
