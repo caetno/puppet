@@ -347,30 +347,45 @@ func _cache_bone_poses() -> void:
 				_base_local_poses[name] = _base_global_poses[name]
 
 func _apply_all_muscles() -> void:
-	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-	if not skeleton:
-		return
-	skeleton.clear_bones_global_pose_override()
+        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+        if not skeleton:
+                return
+        skeleton.clear_bones_global_pose_override()
 
-	var rotations := {}
-	for id in _profile.muscles.keys():
-		var data = _profile.muscles[id]
-		var bone_name: String = data.get("bone_ref", "")
-		if not _base_local_poses.has(bone_name):
-			if not _warned_bones.has(bone_name):
-				push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
-				_warned_bones[bone_name] = true
-			continue
-		var axis_vec = _axis_to_vector(data.get("axis", ""), bone_name, skeleton)
-		if axis_vec == Vector3.ZERO:
-			continue
-		var angle = deg_to_rad(data.get("default_deg", 0.0))
-		var rot = Basis(axis_vec, angle)
-		rotations[bone_name] = rotations.get(bone_name, Basis()) * rot
+        var bone_angles := {}
+        for id in _profile.muscles.keys():
+                var data = _profile.muscles[id]
+                var bone_name: String = data.get("bone_ref", "")
+                if not _base_local_poses.has(bone_name):
+                        if not _warned_bones.has(bone_name):
+                                push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
+                                _warned_bones[bone_name] = true
+                        continue
+                var axis_idx := _axis_to_index(data.get("axis", ""))
+                if axis_idx == -1:
+                        continue
+                var sign := BoneOrientation.get_limit_sign(bone_name, skeleton)
+                var sign_val := [sign.x, sign.y, sign.z][axis_idx]
+                var angle := deg_to_rad(data.get("default_deg", 0.0)) * sign_val
+                var angles: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
+                if axis_idx == 0:
+                        angles.x += angle
+                elif axis_idx == 1:
+                        angles.y += angle
+                else:
+                        angles.z += angle
+                bone_angles[bone_name] = angles
 
-	for i in range(skeleton.get_bone_count()):
-		if skeleton.get_bone_parent(i) == -1:
-			_apply_bone_recursive(skeleton, i, Transform3D.IDENTITY, rotations)
+        var rotations := {}
+        for bone_name in bone_angles.keys():
+                var basis := _bone_basis_from_skeleton(bone_name, skeleton)
+                var angles: Vector3 = bone_angles[bone_name]
+                var rot := Basis(basis.z, angles.z) * Basis(basis.x, angles.x) * Basis(basis.y, angles.y)
+                rotations[bone_name] = rot
+
+        for i in range(skeleton.get_bone_count()):
+                if skeleton.get_bone_parent(i) == -1:
+                        _apply_bone_recursive(skeleton, i, Transform3D.IDENTITY, rotations)
 
 func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: Transform3D, rotations: Dictionary) -> void:
 	var name := skeleton.get_bone_name(bone_idx)
@@ -383,17 +398,15 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 		if skeleton.get_bone_parent(j) == bone_idx:
 			_apply_bone_recursive(skeleton, j, global_pose, rotations)
 
-func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
-	var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton)
-	var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
-        if axis in ["front_back", "nod", "open_close", "finger_in_out"]:
-                return basis.x * sign.x
-        elif axis in ["left_right", "down_up", "tilt"]:
-                return basis.y * sign.y
-        elif axis in ["roll_in_out", "twist", "finger_open_close"]:
-                return basis.z * sign.z
+func _axis_to_index(axis: String) -> int:
+        if axis in ["front_back", "nod", "finger_open_close", "open_close"]:
+                return 0
+        elif axis in ["left_right", "down_up", "tilt", "finger_in_out"]:
+                return 1
+        elif axis in ["roll_in_out", "twist"]:
+                return 2
         else:
-                return Vector3.ZERO
+                return -1
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
 	var idx := skeleton.find_bone(bone_name)
