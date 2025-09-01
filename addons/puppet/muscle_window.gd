@@ -8,6 +8,16 @@ const DualSlider = preload("res://addons/puppet/dual_slider.gd")
 const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 const JointConverter = preload("res://addons/puppet/joint_converter.gd")
 
+# Per-bone degree-of-freedom rotation order mappings.
+const DOF_ORDER := {
+        "Neck": ["z", "x", "y"],
+        "Head": ["z", "x", "y"],
+        "LeftUpperArm": ["x", "z", "y"],
+        "RightUpperArm": ["x", "z", "y"],
+        "LeftUpperLeg": ["x", "z", "y"],
+        "RightUpperLeg": ["x", "z", "y"],
+}
+
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
 var _profile: MuscleProfile = MuscleProfile.new()
@@ -377,12 +387,11 @@ func _apply_all_muscles() -> void:
 						angles.z += angle
 				bone_angles[bone_name] = angles
 
-		var rotations := {}
-		for bone_name in bone_angles.keys():
-				var basis := _bone_basis_from_skeleton(bone_name, skeleton)
-				var angles: Vector3 = bone_angles[bone_name]
-				var rot := Basis(basis.z, angles.z) * Basis(basis.x, angles.x) * Basis(basis.y, angles.y)
-				rotations[bone_name] = rot
+               var rotations := {}
+               for bone_name in bone_angles.keys():
+                               var basis := _bone_basis_from_skeleton(bone_name, skeleton)
+                               var angles: Vector3 = bone_angles[bone_name]
+                               rotations[bone_name] = _compose_rotation(basis, angles, bone_name)
 
 		for i in range(skeleton.get_bone_count()):
 				if skeleton.get_bone_parent(i) == -1:
@@ -400,11 +409,23 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 			_apply_bone_recursive(skeleton, j, global_pose, rotations)
 
 func _axis_to_index(axis: String) -> int:
-		return JointConverter.axis_to_index(axis)
+               return JointConverter.axis_to_index(axis)
+
+func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
+        var order := DOF_ORDER.get(bone, ["x", "y", "z"])
+        var parts := {
+                "x": Basis(basis.x, angles.x),
+                "y": Basis(basis.y, angles.y),
+                "z": Basis(basis.z, angles.z),
+        }
+        var rot := Basis()
+        for k in order:
+                rot = rot * parts[k]
+        return rot
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
-	var idx := skeleton.find_bone(bone_name)
-	if idx == -1:
-		return Basis()
+        var idx := skeleton.find_bone(bone_name)
+        if idx == -1:
+                return Basis()
 	var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
 	return BoneOrientation.apply_rotations(bone_name, basis, skeleton)
