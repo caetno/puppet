@@ -9,6 +9,15 @@ const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 @export var muscles: Dictionary = {}
 @export var version: String = "0.1"
 @export var bone_map: Dictionary = {}
+@export var bone_settings: Dictionary = {}
+
+class BoneSettings:
+        extends Resource
+        var pre_q: Quaternion = Quaternion.IDENTITY
+        var dof_order: Array = []
+        var mirror: String = ""
+        var limits: Array = []
+        var translate_dof: Vector3 = Vector3.ZERO
 
 const UNITY_BONES := [
 	"Hips",
@@ -31,13 +40,13 @@ const UNITY_BONES := [
 ]
 
 func load_from_skeleton(skel: Skeleton3D) -> void:
-	self.skeleton = skel.get_path()
-	bone_map.clear()
-	for name in UNITY_BONES:
-		if skel.find_bone(name) != -1:
-			bone_map[name] = name
-		else:
-			bone_map[name] = ""
-	muscles.clear()
-	for muscle in MuscleData.default_muscles():
-		muscles[str(muscle["muscle_id"])] = muscle.duplicate(true)
+        self.skeleton = skel.get_path()
+        bone_map.clear()
+        bone_settings.clear()
+        for name in UNITY_BONES:
+                var idx := skel.find_bone(name)
+                bone_map[name] = idx
+                bone_settings[name] = BoneSettings.new()
+        muscles.clear()
+        for muscle in MuscleData.default_muscles():
+                muscles[str(muscle["muscle_id"])] = muscle.duplicate(true)
