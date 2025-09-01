@@ -189,7 +189,6 @@ static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -
 
     var left_hand := _find_bone(skeleton, ["LeftHand", "LeftWrist"])
     var right_hand := _find_bone(skeleton, ["RightHand", "RightWrist"])
-
     var source_axis := Vector3.ZERO
     var target_axis := Vector3.ZERO
 
@@ -239,6 +238,7 @@ static func _find_bone(skeleton: Skeleton3D, names: Array) -> int:
         if idx != -1:
             return idx
     return -1
+
 
 static func _is_descendant_of(skeleton: Skeleton3D, bone: int, ancestor: int) -> bool:
     var p := bone
