@@ -190,7 +190,79 @@ static func _derive_bone_basis(skeleton: Skeleton3D, bone: int, ref_basis: Basis
 static func joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
     load_cache(CACHE_PATH, skeleton)
     var ref := _reference_basis_from_skeleton(skeleton)
+    ref = _align_hand_reference(skeleton, bone, ref)
     return _derive_bone_basis(skeleton, bone, ref)
+
+## Adjusts the reference basis so finger curling follows the forearm direction.
+## Unity's avatar mapper re‑orients the hand using the vector between the lower
+## arm and the hand before mapping finger bones.  This mirrors that behavior so
+## the `finger_open_close` muscle curls the fingers instead of moving them
+## sideways.
+static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -> Basis:
+    if not skeleton:
+        push_warning("No skeleton provided; skipping hand alignment")
+        return ref
+
+    var left_hand := _find_bone(skeleton, ["LeftHand", "LeftWrist"])
+    var right_hand := _find_bone(skeleton, ["RightHand", "RightWrist"])
+
+    var source_axis := Vector3.ZERO
+    var target_axis := Vector3.ZERO
+
+    if left_hand != -1 and _is_descendant_of(skeleton, bone, left_hand):
+        var lower := _find_bone(skeleton, ["LeftLowerArm", "LeftForeArm", "LeftForearm"])
+        if lower == -1:
+            push_warning("Left forearm bone not found; finger alignment skipped")
+            return ref
+        var lower_pos := _get_global_rest(skeleton, lower).origin
+        var hand_pos := _get_global_rest(skeleton, left_hand).origin
+        target_axis = hand_pos - lower_pos
+        if target_axis.length() == 0.0:
+            push_warning("Left hand and forearm positions are identical; finger alignment skipped")
+            return ref
+        target_axis = target_axis.normalized()
+        source_axis = -ref.x
+    elif right_hand != -1 and _is_descendant_of(skeleton, bone, right_hand):
+        var lower := _find_bone(skeleton, ["RightLowerArm", "RightForeArm", "RightForearm"])
+        if lower == -1:
+            push_warning("Right forearm bone not found; finger alignment skipped")
+            return ref
+        var lower_pos := _get_global_rest(skeleton, lower).origin
+        var hand_pos := _get_global_rest(skeleton, right_hand).origin
+        target_axis = hand_pos - lower_pos
+        if target_axis.length() == 0.0:
+            push_warning("Right hand and forearm positions are identical; finger alignment skipped")
+            return ref
+        target_axis = target_axis.normalized()
+        source_axis = ref.x
+    else:
+        if left_hand == -1 and right_hand == -1:
+            var name := skeleton.get_bone_name(bone).to_lower()
+            if name.find("finger") != -1 or name.find("hand") != -1:
+                push_warning("Hand bones not found; finger alignment skipped for %s" % skeleton.get_bone_name(bone))
+        return ref
+
+    if source_axis.length() == 0.0 or target_axis.length() == 0.0:
+        push_warning("Invalid axis computed for hand alignment; finger alignment skipped")
+        return ref
+
+    var q := Quaternion(source_axis, target_axis)
+    return Basis(q) * ref
+
+static func _find_bone(skeleton: Skeleton3D, names: Array) -> int:
+    for n in names:
+        var idx := skeleton.find_bone(n)
+        if idx != -1:
+            return idx
+    return -1
+
+static func _is_descendant_of(skeleton: Skeleton3D, bone: int, ancestor: int) -> bool:
+    var p := bone
+    while p != -1:
+        if p == ancestor:
+            return true
+        p = skeleton.get_bone_parent(p)
+    return false
 
 # -- Serialization helpers --------------------------------------------------
 
