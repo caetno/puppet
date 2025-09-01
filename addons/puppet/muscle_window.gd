@@ -51,22 +51,22 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		hide()
 
 func _setup_picker() -> void:
-        _picker.base_type = "PuppetProfile"
-        _picker.edited_resource = _profile
-        _picker.resource_changed.connect(_on_profile_changed)
+	_picker.base_type = "PuppetProfile"
+	_picker.edited_resource = _profile
+	_picker.resource_changed.connect(_on_profile_changed)
 
 func _on_profile_changed(res: Resource) -> void:
-        if res:
-                _profile = res
-                if _profile.muscles.is_empty():
-                        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-                        if skeleton:
-                                _profile.load_from_skeleton(skeleton)
-        else:
-                _profile = PuppetProfile.new()
-                var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-                if skeleton:
-                        _profile.load_from_skeleton(skeleton)
+	if res:
+		_profile = res
+		if _profile.muscles.is_empty():
+			var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+			if skeleton:
+				_profile.load_from_skeleton(skeleton)
+	else:
+		_profile = PuppetProfile.new()
+		var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+		if skeleton:
+			_profile.load_from_skeleton(skeleton)
 	_populate_list()
 	_apply_all_muscles()
 
@@ -97,13 +97,13 @@ func _load_model(src: Node3D) -> void:
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.2, 0.2, 0.2)
 	_viewport.add_child(env)
-        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-        if skeleton:
-                if _profile.muscles.is_empty():
-                        _profile.load_from_skeleton(skeleton)
-                else:
-                        _profile.skeleton = _model.get_path_to(skeleton)
-                        _profile.bake_bones(skeleton)
+	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+	if skeleton:
+		if _profile.muscles.is_empty():
+			_profile.load_from_skeleton(skeleton)
+		else:
+			_profile.skeleton = _model.get_path_to(skeleton)
+			_profile.bake_bones(skeleton)
 	_cache_bone_poses()
 	_populate_tree()
 
@@ -133,13 +133,13 @@ func _populate_list() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 
-        _sliders.clear()
-        _group_sliders.clear()
-        _group_muscles = {
-                "X": [],
-                "Y": [],
-                "Z": [],
-        }
+	_sliders.clear()
+	_group_sliders.clear()
+	_group_muscles = {
+		"X": [],
+		"Y": [],
+		"Z": [],
+	}
 
 	var grouped: Dictionary = {}
 	for id in _profile.muscles.keys():
@@ -149,31 +149,31 @@ func _populate_list() -> void:
 			grouped[grp] = []
 		grouped[grp].append(id)
 
-                var axis: String = data.get("axis", "")
-                if _group_muscles.has(axis):
-                        _group_muscles[axis].append(id)
+		var axis: String = data.get("axis", "")
+		if _group_muscles.has(axis):
+			_group_muscles[axis].append(id)
 
-        var header := Label.new()
-        header.text = "Axis Groups"
+	var header := Label.new()
+	header.text = "Axis Groups"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_child(header)
-        var type_order := ["X", "Y", "Z"]
-        for g in type_order:
-                var row := HBoxContainer.new()
-                row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-                _list.add_child(row)
-                var label := Label.new()
-                label.text = "Axis %s" % g
-                label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-                row.add_child(label)
-                var slider := HSlider.new()
-                slider.min_value = -1.0
-                slider.max_value = 1.0
-                slider.step = 0.01
-                slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-                slider.value_changed.connect(_on_group_slider_changed.bind(g))
-                row.add_child(slider)
-                _group_sliders[g] = slider
+	var type_order := ["X", "Y", "Z"]
+	for g in type_order:
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_list.add_child(row)
+		var label := Label.new()
+		label.text = "Axis %s" % g
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var slider := HSlider.new()
+		slider.min_value = -1.0
+		slider.max_value = 1.0
+		slider.step = 0.01
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.value_changed.connect(_on_group_slider_changed.bind(g))
+		row.add_child(slider)
+		_group_sliders[g] = slider
 
 	var order := ["Body", "Head", "Left Arm", "Left Hand", "Right Arm", "Right Hand", "Left Leg", "Right Leg", "Misc"]
 	for grp in order:
@@ -351,8 +351,8 @@ func _apply_all_muscles() -> void:
 		var axis_idx := _axis_to_index(data.get("axis", ""))
 		if axis_idx == -1:
 			continue
-                var sign := _profile.get_mirror(bone_name)
-                var sign_val = [sign.x, sign.y, sign.z][axis_idx]
+		var sign := _profile.get_mirror(bone_name)
+		var sign_val = [sign.x, sign.y, sign.z][axis_idx]
 		var angle = deg_to_rad(data.get("default_deg", 0.0)) * sign_val
 		var angles: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
 		if axis_idx == 0:
@@ -388,8 +388,8 @@ func _axis_to_index(axis: String) -> int:
 	return JointConverter.axis_to_index(axis)
 
 func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
-        var order := _profile.get_dof_order(bone)
-        var parts := {
+	var order := _profile.get_dof_order(bone)
+	var parts := {
 		"x": Basis(basis.x, angles.x),
 		"y": Basis(basis.y, angles.y),
 		"z": Basis(basis.z, angles.z),
@@ -401,8 +401,8 @@ func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
 
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
-        var idx := skeleton.find_bone(bone_name)
-        if idx == -1:
-                return Basis()
-        var basis := OrientationBaker.joint_basis_from_skeleton(skeleton, idx)
-        return Basis(_profile.get_pre_quaternion(bone_name)) * basis
+	var idx := skeleton.find_bone(bone_name)
+	if idx == -1:
+		return Basis()
+	var basis := OrientationBaker.joint_basis_from_skeleton(skeleton, idx)
+	return Basis(_profile.get_pre_quaternion(bone_name)) * basis
