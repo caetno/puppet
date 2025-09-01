@@ -1,41 +1,48 @@
 @tool
-class_name BoneOrientation
+class_name PuppetOrientationBaker
 
-## Stores pre/post rotation and limit sign data for humanoid bones.
-# The data can be generated from Unity's Avatar API or derived from a Godot
-# skeleton at runtime.
+## Baker for canonical humanoid bone orientation data.
+## Produces per‑bone dictionaries containing a pre‑rotation quaternion, mirror
+## signs for each axis and the preferred degree‑of‑freedom rotation order.
 
-static var _pre_rotations: Dictionary = {}
-static var _post_rotations: Dictionary = {}
-static var _limit_signs: Dictionary = {}
+const DOF_ORDER := {
+	"Neck": ["z", "x", "y"],
+	"Head": ["z", "x", "y"],
+	"LeftUpperArm": ["x", "z", "y"],
+	"RightUpperArm": ["x", "z", "y"],
+	"LeftUpperLeg": ["x", "z", "y"],
+	"RightUpperLeg": ["x", "z", "y"],
+}
 
+static var _cache: Dictionary = {}
 
-## Populates orientation data from a Unity export.
-# `unity_json_path` should be a JSON file produced by a Unity editor script that
-# queries Avatar.GetPreRotation / GetPostRotation / GetLimitSign for each bone.
-static func generate_from_unity(unity_json_path: String) -> void:
-	var file := FileAccess.open(unity_json_path, FileAccess.READ)
-	if not file:
-		push_warning("Unity export file not found: %s" % unity_json_path)
-		return
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("Failed to parse Unity export JSON: %s" % unity_json_path)
-		return
-	var data: Dictionary = json.data
-	_pre_rotations = _parse_basis_dict(data.get("preRotations", data.get("pre_rotations", {})))
-	_post_rotations = _parse_basis_dict(data.get("postRotations", data.get("post_rotations", {})))
-	_limit_signs = _parse_vector_dict(data.get("limitSigns", data.get("limit_signs", {})))
-
-
-## Generates orientation data for the bones present in `skeleton`.
-static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
+static func generate_from_skeleton(skeleton: Skeleton3D) -> Dictionary:
 	if not skeleton:
-		return
+		return {}
+	var data := bake(skeleton)
+	_cache[skeleton.get_instance_id()] = data
+	return data
 
-	_pre_rotations.clear()
-	_post_rotations.clear()
-	_limit_signs.clear()
+static func _get_data(bone: String, skeleton: Skeleton3D) -> Dictionary:
+	var cached := _cache.get(skeleton.get_instance_id(), {})
+	return cached.get(bone, {})
+
+static func apply_rotations(bone: String, basis: Basis, skeleton: Skeleton3D) -> Basis:
+	var data := _get_data(bone, skeleton)
+	if data.has("pre_q"):
+		basis = Basis(data["pre_q"]) * basis
+	return basis
+
+static func get_limit_sign(bone: String, skeleton: Skeleton3D) -> Vector3:
+	var data := _get_data(bone, skeleton)
+	return data.get("mirror", Vector3.ONE)
+
+## Bakes orientation data for all bones in `skeleton` and returns it as a
+## dictionary mapping bone names to orientation info.
+static func bake(skeleton: Skeleton3D) -> Dictionary:
+	var result := {}
+	if not skeleton:
+		return result
 
 	var ref_basis := _reference_basis_from_skeleton(skeleton)
 
@@ -45,10 +52,6 @@ static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
 		var aligned_ref := _align_hand_reference(skeleton, i, ref_basis)
 		var joint_basis := _derive_bone_basis(skeleton, i, aligned_ref)
 
-		var bone_global := _get_global_rest(skeleton, i)
-
-		# Pre/post rotations map the joint frame to the rest pose similar to
-		# Unity's Avatar.GetPreRotation / GetPostRotation.
 		var parent := skeleton.get_bone_parent(i)
 		var parent_global := Transform3D.IDENTITY
 		if parent != -1:
@@ -56,41 +59,32 @@ static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
 		var joint_local := parent_global.basis.inverse() * joint_basis
 		var bone_local := skeleton.get_bone_rest(i).basis
 
-		_pre_rotations[name] = bone_local * joint_local.inverse()
-		_post_rotations[name] = Basis()
-
-		_limit_signs[name] = Vector3(
+		var pre_rot := bone_local * joint_local.inverse()
+		var sign := Vector3(
 			1.0 if bone_local.x.dot(joint_local.x) >= 0.0 else -1.0,
 			1.0 if bone_local.y.dot(joint_local.y) >= 0.0 else -1.0,
 			1.0 if bone_local.z.dot(joint_local.z) >= 0.0 else -1.0,
 		)
 
+		result[name] = {
+			"pre_q": pre_rot.get_rotation_quaternion(),
+			"mirror": sign,
+			"dof_order": DOF_ORDER.get(name, ["x", "y", "z"]),
+		}
 
-static func get_pre_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
-	if skeleton and _pre_rotations.is_empty():
-		generate_from_skeleton(skeleton)
-	return _pre_rotations.get(bone, Basis())
-
-
-static func get_post_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
-	if skeleton and _post_rotations.is_empty():
-		generate_from_skeleton(skeleton)
-	return _post_rotations.get(bone, Basis())
+	return result
 
 
-static func get_limit_sign(bone: String, skeleton: Skeleton3D = null) -> Vector3:
-	if skeleton and _limit_signs.is_empty():
-		generate_from_skeleton(skeleton)
-	return _limit_signs.get(bone, Vector3.ONE)
-
-
-static func apply_rotations(bone: String, basis: Basis, skeleton: Skeleton3D = null) -> Basis:
-	var result := get_pre_rotation(bone, skeleton) * basis * get_post_rotation(bone, skeleton)
-	return result.orthonormalized()
+## Derives a joint basis from the skeleton geometry so X points sideways, Y up
+## and Z follows the average direction of the children.	 This mirrors the
+## behaviour of Unity's humanoid rigging.
+static func joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
+	var ref := _reference_basis_from_skeleton(skeleton)
+	ref = _align_hand_reference(skeleton, bone, ref)
+	return _derive_bone_basis(skeleton, bone, ref)
 
 
 # -- Runtime generation helpers ---------------------------------------------
-
 
 static func _get_global_rest(skeleton: Skeleton3D, bone: int) -> Transform3D:
 	var t := skeleton.get_bone_rest(bone)
@@ -149,7 +143,7 @@ static func _reference_basis_from_skeleton(skeleton: Skeleton3D) -> Basis:
 
 
 ## Derives the joint basis for `bone` using `ref_basis` for sideways and up
-## directions.  The bone's longitudinal axis is the average direction of all its
+## directions.	The bone's longitudinal axis is the average direction of all its
 ## children.
 static func _derive_bone_basis(skeleton: Skeleton3D, bone: int, ref_basis: Basis) -> Basis:
 	var bone_global := _get_global_rest(skeleton, bone)
@@ -180,14 +174,6 @@ static func _derive_bone_basis(skeleton: Skeleton3D, bone: int, ref_basis: Basis
 		x_axis = -x_axis
 
 	return Basis(x_axis, y_axis, z_axis)
-
-
-## Exposed helper so other scripts can derive a joint basis from the skeleton's
-## geometry.
-static func joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
-	var ref := _reference_basis_from_skeleton(skeleton)
-	ref = _align_hand_reference(skeleton, bone, ref)
-	return _derive_bone_basis(skeleton, bone, ref)
 
 
 ## Adjusts the reference basis so finger curling follows the forearm direction.
@@ -281,10 +267,6 @@ static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -
 static func _fallback_hand_orientation(skeleton: Skeleton3D, hand: int, hand_dir: Vector3, ref: Basis) -> Basis:
 	if hand_dir.length() == 0.0:
 		return ref
-	var name := skeleton.get_bone_name(hand)
-	if _pre_rotations.has(name) or _post_rotations.has(name):
-		var basis: Basis = _pre_rotations.get(name, Basis()) * _post_rotations.get(name, Basis())
-		return basis.orthonormalized()
 	hand_dir = hand_dir.normalized()
 	var y_axis := ref.y - hand_dir * ref.y.dot(hand_dir)
 	if y_axis.length() == 0.0:
@@ -318,24 +300,3 @@ static func _is_descendant_of(skeleton: Skeleton3D, bone: int, ancestor: int) ->
 		p = skeleton.get_bone_parent(p)
 	return false
 
-
-# -- Serialization helpers --------------------------------------------------
-
-
-static func _parse_basis_dict(src: Dictionary) -> Dictionary:
-	var result := {}
-	for k in src.keys():
-		var arr = src[k]
-		if arr is Array and arr.size() == 4:
-			var q := Quaternion(arr[0], arr[1], arr[2], arr[3])
-			result[k] = Basis(q)
-	return result
-
-
-static func _parse_vector_dict(src: Dictionary) -> Dictionary:
-	var result := {}
-	for k in src.keys():
-		var arr = src[k]
-		if arr is Array and arr.size() == 3:
-			result[k] = Vector3(arr[0], arr[1], arr[2])
-	return result

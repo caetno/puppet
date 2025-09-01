@@ -1,5 +1,5 @@
 extends SceneTree
-const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const OrientationBaker = preload("res://addons/puppet/bone_orientation.gd")
 
 func _init():
     test_humanoid()
@@ -31,7 +31,7 @@ func test_humanoid():
     var positions = [Vector3.ZERO, Vector3(0.3, 0, 0), Vector3(0.2, 0, 0), Vector3(0.1, 0, -0.1)]
     var s = _build_skeleton(names, parents, positions)
     var idx = s.find_bone("LeftMiddleProximal")
-    var basis = BoneOrientation.joint_basis_from_skeleton(s, idx)
+    var basis = OrientationBaker.joint_basis_from_skeleton(s, idx)
     _assert_basis_valid(basis)
     assert(basis.y.dot(Vector3.UP) > 0.9)
 
@@ -41,7 +41,7 @@ func test_gltf():
     var positions = [Vector3.ZERO, Vector3(0.3, 0, 0), Vector3(0.2, 0, 0), Vector3(0.1, 0, -0.1)]
     var s = _build_skeleton(names, parents, positions)
     var idx = s.find_bone("LeftMiddleProximal")
-    var basis = BoneOrientation.joint_basis_from_skeleton(s, idx)
+    var basis = OrientationBaker.joint_basis_from_skeleton(s, idx)
     _assert_basis_valid(basis)
     assert(basis.y.dot(Vector3.UP) > 0.9)
 
@@ -51,6 +51,6 @@ func test_mixamo():
     var positions = [Vector3.ZERO, Vector3(0.3, 0, 0), Vector3(0.2, 0, 0), Vector3.ZERO]
     var s = _build_skeleton(names, parents, positions)
     var idx = s.find_bone("mixamorig_LeftHandMiddle1")
-    var basis = BoneOrientation.joint_basis_from_skeleton(s, idx)
+    var basis = OrientationBaker.joint_basis_from_skeleton(s, idx)
     _assert_basis_valid(basis)
     assert(abs(basis.y.dot(Vector3.UP)) > 0.9)
