@@ -128,11 +128,11 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 # -- Helpers ----------------------------------------------------------------
 static func _axis_to_char(axis: String) -> String:
 	# Maps the profile axis names to the corresponding Generic6DOFJoint axis.
-	if axis in ["front_back", "nod", "down_up", "finger_open_close", "open_close"]:
-		return "x"
-	elif axis in ["left_right", "finger_in_out"]:
-		return "y"
-	elif axis in ["tilt", "roll_in_out", "twist"]:
-		return "z"
-	else:
-		return ""
+        if axis in ["front_back", "nod", "down_up", "finger_in_out", "open_close"]:
+                return "x"
+        elif axis in ["left_right"]:
+                return "y"
+        elif axis in ["tilt", "roll_in_out", "twist", "finger_open_close"]:
+                return "z"
+        else:
+                return ""
