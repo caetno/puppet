@@ -51,18 +51,34 @@ static func generate_from_unity(unity_json_path: String, cache_path: String = CA
 static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
     if not skeleton:
         return
+
+    var ref_basis := _reference_basis_from_skeleton(skeleton)
+
     for i in skeleton.get_bone_count():
         var name := skeleton.get_bone_name(i)
         if _pre_rotations.has(name) and _post_rotations.has(name) and _limit_signs.has(name):
             continue
-        var joint_basis := _joint_basis_from_skeleton(skeleton, i)
+
+        var joint_basis := _derive_bone_basis(skeleton, i, ref_basis)
+
         var bone_global := _get_global_rest(skeleton, i)
-        _pre_rotations[name] = bone_global.basis * joint_basis.inverse()
+
+        # Pre/post rotations map the joint frame to the rest pose similar to
+        # Unity's Avatar.GetPreRotation / GetPostRotation.
+        var parent := skeleton.get_bone_parent(i)
+        var parent_global := Transform3D.IDENTITY
+        if parent != -1:
+            parent_global = _get_global_rest(skeleton, parent)
+        var joint_local := parent_global.basis.inverse() * joint_basis
+        var bone_local := skeleton.get_bone_rest(i).basis
+
+        _pre_rotations[name] = bone_local * joint_local.inverse()
         _post_rotations[name] = Basis()
+
         _limit_signs[name] = Vector3(
-            1.0 if bone_global.basis.x.dot(joint_basis.x) >= 0.0 else -1.0,
-            1.0 if bone_global.basis.y.dot(joint_basis.y) >= 0.0 else -1.0,
-            1.0 if bone_global.basis.z.dot(joint_basis.z) >= 0.0 else -1.0,
+            1.0 if bone_local.x.dot(joint_local.x) >= 0.0 else -1.0,
+            1.0 if bone_local.y.dot(joint_local.y) >= 0.0 else -1.0,
+            1.0 if bone_local.z.dot(joint_local.z) >= 0.0 else -1.0,
         )
 
 static func get_pre_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
@@ -90,27 +106,91 @@ static func _get_global_rest(skeleton: Skeleton3D, bone: int) -> Transform3D:
         parent = skeleton.get_bone_parent(parent)
     return t
 
-static func _joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
+## Builds a global reference basis (sideways, up, forward) from hip and shoulder
+## positions.  If required bones are missing the skeleton's global transform is
+## used instead.
+static func _reference_basis_from_skeleton(skeleton: Skeleton3D) -> Basis:
+    if not skeleton:
+        return Basis()
+
+    var left_leg := skeleton.find_bone("LeftUpperLeg")
+    if left_leg == -1:
+        left_leg = skeleton.find_bone("LeftUpLeg")
+    var right_leg := skeleton.find_bone("RightUpperLeg")
+    if right_leg == -1:
+        right_leg = skeleton.find_bone("RightUpLeg")
+
+    var left_shoulder := skeleton.find_bone("LeftShoulder")
+    if left_shoulder == -1:
+        left_shoulder = skeleton.find_bone("LeftUpperArm")
+    var right_shoulder := skeleton.find_bone("RightShoulder")
+    if right_shoulder == -1:
+        right_shoulder = skeleton.find_bone("RightUpperArm")
+
+    if left_leg == -1 or right_leg == -1 or left_shoulder == -1 or right_shoulder == -1:
+        return skeleton.global_transform.basis
+
+    var left_leg_pos := _get_global_rest(skeleton, left_leg).origin
+    var right_leg_pos := _get_global_rest(skeleton, right_leg).origin
+    var left_shoulder_pos := _get_global_rest(skeleton, left_shoulder).origin
+    var right_shoulder_pos := _get_global_rest(skeleton, right_shoulder).origin
+
+    var sideways := (right_leg_pos - left_leg_pos + right_shoulder_pos - left_shoulder_pos) * 0.5
+    if sideways.length() == 0.0:
+        sideways = Vector3.RIGHT
+    sideways = sideways.normalized()
+
+    var hip_center := (left_leg_pos + right_leg_pos) * 0.5
+    var shoulder_center := (left_shoulder_pos + right_shoulder_pos) * 0.5
+    var up := (shoulder_center - hip_center).normalized()
+    if up.length() == 0.0:
+        up = Vector3.UP
+
+    var forward := sideways.cross(up).normalized()
+    if forward.length() == 0.0:
+        forward = Vector3.FORWARD
+    up = forward.cross(sideways).normalized()
+    return Basis(sideways, up, forward)
+
+## Derives the joint basis for `bone` using `ref_basis` for sideways and up
+## directions.  The bone's longitudinal axis is the average direction of all its
+## children.
+static func _derive_bone_basis(skeleton: Skeleton3D, bone: int, ref_basis: Basis) -> Basis:
     var bone_global := _get_global_rest(skeleton, bone)
-    var z_axis: Vector3 = bone_global.basis.z
-    var child := -1
+
+    var z_axis := Vector3.ZERO
+    var child_count := 0
     for j in skeleton.get_bone_count():
         if skeleton.get_bone_parent(j) == bone:
-            child = j
-            break
-    if child != -1:
-        var child_global := _get_global_rest(skeleton, child)
-        var dir := (child_global.origin - bone_global.origin).normalized()
-        if dir.length() > 0.0:
-            z_axis = dir
-    var ref: Vector3 = Vector3.UP
-    if abs(z_axis.dot(ref)) > 0.99:
-        ref = skeleton.global_transform.basis.z
-    var x_axis := ref.cross(z_axis).normalized()
+            var child_global := _get_global_rest(skeleton, j)
+            var dir := (child_global.origin - bone_global.origin).normalized()
+            if dir.length() > 0.0:
+                z_axis += dir
+                child_count += 1
+
+    if child_count == 0:
+        z_axis = bone_global.basis.z.normalized()
+    else:
+        z_axis = z_axis.normalized()
+
+    var x_axis := (ref_basis.x - z_axis * ref_basis.x.dot(z_axis))
     if x_axis.length() == 0.0:
-        x_axis = ref.cross(Vector3.RIGHT).normalized()
+        x_axis = ref_basis.y.cross(z_axis)
+    x_axis = x_axis.normalized()
+
     var y_axis := z_axis.cross(x_axis).normalized()
+    if y_axis.dot(ref_basis.y) < 0.0:
+        y_axis = -y_axis
+        x_axis = -x_axis
+
     return Basis(x_axis, y_axis, z_axis)
+
+## Exposed helper so other scripts can derive a joint basis from the skeleton's
+## geometry.
+static func joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
+    load_cache(CACHE_PATH, skeleton)
+    var ref := _reference_basis_from_skeleton(skeleton)
+    return _derive_bone_basis(skeleton, bone, ref)
 
 # -- Serialization helpers --------------------------------------------------
 

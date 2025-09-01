@@ -11,5 +11,8 @@ func _init():
     assert(bo._pre_rotations.has("CustomChest"))
     var joint = skeleton.get_node("CustomChest")
     assert(joint is Generic6DOFJoint3D)
+    var MW = load("res://addons/puppet/muscle_window.gd").new()
+    var v = MW._axis_to_vector("front_back", "CustomChest", skeleton)
+    assert(v.length() > 0.0)
     print("runtime orientation generation ok")
     quit()
