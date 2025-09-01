@@ -8,6 +8,16 @@ const DualSlider = preload("res://addons/puppet/dual_slider.gd")
 const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 const JointConverter = preload("res://addons/puppet/joint_converter.gd")
 
+# Per-bone degree-of-freedom rotation order mappings.
+const DOF_ORDER := {
+        "Neck": ["z", "x", "y"],
+        "Head": ["z", "x", "y"],
+        "LeftUpperArm": ["x", "z", "y"],
+        "RightUpperArm": ["x", "z", "y"],
+        "LeftUpperLeg": ["x", "z", "y"],
+        "RightUpperLeg": ["x", "z", "y"],
+}
+
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
 var _profile: MuscleProfile = MuscleProfile.new()
@@ -348,45 +358,44 @@ func _cache_bone_poses() -> void:
 				_base_local_poses[name] = _base_global_poses[name]
 
 func _apply_all_muscles() -> void:
-		var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-		if not skeleton:
-				return
-		skeleton.clear_bones_global_pose_override()
+	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+	if not skeleton:
+		return
+	skeleton.clear_bones_global_pose_override()
 
-		var bone_angles := {}
-		for id in _profile.muscles.keys():
-				var data = _profile.muscles[id]
-				var bone_name: String = data.get("bone_ref", "")
-				if not _base_local_poses.has(bone_name):
-						if not _warned_bones.has(bone_name):
-								push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
-								_warned_bones[bone_name] = true
-						continue
-				var axis_idx := _axis_to_index(data.get("axis", ""))
-				if axis_idx == -1:
-						continue
-				var sign := BoneOrientation.get_limit_sign(bone_name, skeleton)
-				var sign_val = [sign.x, sign.y, sign.z][axis_idx]
-				var angle = deg_to_rad(data.get("default_deg", 0.0)) * sign_val
-				var angles: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
-				if axis_idx == 0:
-						angles.x += angle
-				elif axis_idx == 1:
-						angles.y += angle
-				else:
-						angles.z += angle
-				bone_angles[bone_name] = angles
+	var bone_angles := {}
+	for id in _profile.muscles.keys():
+		var data = _profile.muscles[id]
+		var bone_name: String = data.get("bone_ref", "")
+		if not _base_local_poses.has(bone_name):
+			if not _warned_bones.has(bone_name):
+				push_warning("Missing bone '%s' for muscle '%s'" % [bone_name, id])
+				_warned_bones[bone_name] = true
+			continue
+		var axis_idx := _axis_to_index(data.get("axis", ""))
+		if axis_idx == -1:
+			continue
+		var sign := BoneOrientation.get_limit_sign(bone_name, skeleton)
+		var sign_val = [sign.x, sign.y, sign.z][axis_idx]
+		var angle = deg_to_rad(data.get("default_deg", 0.0)) * sign_val
+		var angles: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
+		if axis_idx == 0:
+			angles.x += angle
+		elif axis_idx == 1:
+			angles.y += angle
+		else:
+			angles.z += angle
+		bone_angles[bone_name] = angles
 
-		var rotations := {}
-		for bone_name in bone_angles.keys():
-				var basis := _bone_basis_from_skeleton(bone_name, skeleton)
-				var angles: Vector3 = bone_angles[bone_name]
-				var rot := Basis(basis.z, angles.z) * Basis(basis.x, angles.x) * Basis(basis.y, angles.y)
-				rotations[bone_name] = rot
+	var rotations := {}
+	for bone_name in bone_angles.keys():
+		var basis := _bone_basis_from_skeleton(bone_name, skeleton)
+		var angles: Vector3 = bone_angles[bone_name]
+		rotations[bone_name] = _compose_rotation(basis, angles, bone_name)
 
-		for i in range(skeleton.get_bone_count()):
-				if skeleton.get_bone_parent(i) == -1:
-						_apply_bone_recursive(skeleton, i, Transform3D.IDENTITY, rotations)
+	for i in range(skeleton.get_bone_count()):
+		if skeleton.get_bone_parent(i) == -1:
+			_apply_bone_recursive(skeleton, i, Transform3D.IDENTITY, rotations)
 
 func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: Transform3D, rotations: Dictionary) -> void:
 	var name := skeleton.get_bone_name(bone_idx)
@@ -400,7 +409,19 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 			_apply_bone_recursive(skeleton, j, global_pose, rotations)
 
 func _axis_to_index(axis: String) -> int:
-		return JointConverter.axis_to_index(axis)
+	return JointConverter.axis_to_index(axis)
+
+func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
+	var order := DOF_ORDER.get(bone, ["x", "y", "z"])
+	var parts := {
+		"x": Basis(basis.x, angles.x),
+		"y": Basis(basis.y, angles.y),
+		"z": Basis(basis.z, angles.z),
+	}
+	var rot := Basis()
+	for k in order:
+		rot = rot * parts[k]
+	return rot
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
 	var idx := skeleton.find_bone(bone_name)
