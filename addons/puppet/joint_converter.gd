@@ -1,8 +1,8 @@
 @tool
 class_name JointConverter
 
-const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
-const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const PuppetProfile = preload("res://addons/puppet/profile_resource.gd")
+const OrientationBaker = preload("res://addons/puppet/bone_orientation.gd")
 
 const AXIS_TO_INDEX := {
 		"front_back": 0,
@@ -28,10 +28,9 @@ const AXIS_TO_INDEX := {
 # skeleton and replaces every existing `Joint3D` descendant with a
 # `Generic6DOFJoint3D` while preserving the original attachment nodes and
 # transform.
-static func convert_to_6dof(skeleton: Skeleton3D) -> void:
-	if not skeleton:
-		return
-	BoneOrientation.generate_from_skeleton(skeleton)
+static func convert_to_6dof(profile: PuppetProfile, skeleton: Skeleton3D) -> void:
+        if not skeleton:
+                return
 
 	# Collect all joints that need to be converted.  We gather them first so we
 	# can safely modify the scene tree while iterating.
@@ -66,17 +65,17 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 		# Configure the joint frame so X is the sideways axis, Y is forward and
 		# Z follows the bone direction.  This mirrors Unity's humanoid setup
 		# which derives the frame from the bone and its child direction.
-		var bone_name := new_joint.name
-		var idx := skeleton.find_bone(bone_name)
-		if idx == -1:
-			continue
-		var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
-		basis = BoneOrientation.apply_rotations(bone_name, basis, skeleton)
-		new_joint.transform.basis = basis
-		var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
-		new_joint.set("angular_limit_x/axis", basis.x * sign.x)
-		new_joint.set("angular_limit_y/axis", basis.y * sign.y)
-		new_joint.set("angular_limit_z/axis", basis.z * sign.z)
+                var bone_name := new_joint.name
+                var idx := skeleton.find_bone(bone_name)
+                if idx == -1:
+                        continue
+                var basis := OrientationBaker.joint_basis_from_skeleton(skeleton, idx)
+                basis = Basis(profile.get_pre_quaternion(bone_name)) * basis
+                new_joint.transform.basis = basis
+                var sign: Vector3 = profile.get_mirror(bone_name)
+                new_joint.set("angular_limit_x/axis", basis.x * sign.x)
+                new_joint.set("angular_limit_y/axis", basis.y * sign.y)
+                new_joint.set("angular_limit_z/axis", basis.z * sign.z)
 
 		new_joint.set("angular_limit_x/enabled", true)
 		new_joint.set("angular_limit_y/enabled", true)
@@ -90,17 +89,17 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 
 
 # Previous helper for deriving joint bases has been replaced by
-# BoneOrientation.joint_basis_from_skeleton which performs the same task while
+# OrientationBaker.joint_basis_from_skeleton which performs the same task while
 # taking the global reference frame into account.
 
 
 # -- Limit application ------------------------------------------------------
 # -- Limit application ------------------------------------------------------
-# Reads limit information from a `MuscleProfile` and applies it to the 6‑DOF
+# Reads limit information from a `PuppetProfile` and applies it to the 6‑DOF
 # joints generated above.  Each muscle entry defines a bone, an axis and the
 # minimum / maximum angles in degrees.  The limits are translated to the
 # corresponding joint properties.
-static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
+static func apply_limits(profile: PuppetProfile, skeleton: Skeleton3D) -> void:
 	if not profile or not skeleton:
 		return
 
