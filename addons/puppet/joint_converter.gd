@@ -15,11 +15,9 @@ const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 # `Generic6DOFJoint3D` while preserving the original attachment nodes and
 # transform.
 static func convert_to_6dof(skeleton: Skeleton3D) -> void:
-    BoneOrientation.load_cache()
     if not skeleton:
-
         return
-    BoneOrientation.generate_from_skeleton(skeleton)
+    BoneOrientation.load_cache(BoneOrientation.CACHE_PATH, skeleton)
 
     # Collect all joints that need to be converted.  We gather them first so we
     # can safely modify the scene tree while iterating.
@@ -47,17 +45,20 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 
         # Place the new joint in the same position in the scene tree.
         var parent: Node = old_joint.get_parent()
-        var idx: int = parent.get_children().find(old_joint)
+        var child_idx: int = parent.get_children().find(old_joint)
         parent.remove_child(old_joint)
         parent.add_child(new_joint)
-        parent.move_child(new_joint, idx)
+        parent.move_child(new_joint, child_idx)
         old_joint.queue_free()
 
         # Configure the joint frame so X is the sideways axis, Y is forward and
         # Z follows the bone direction.  This mirrors Unity's humanoid setup
         # which derives the frame from the bone and its child direction.
-        var basis := _joint_basis_from_bones(new_joint, skeleton)
         var bone_name := new_joint.name
+        var idx := skeleton.find_bone(bone_name)
+        if idx == -1:
+            continue
+        var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
         basis = BoneOrientation.apply_rotations(bone_name, basis, skeleton)
         new_joint.transform.basis = basis
         var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
@@ -76,28 +77,9 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
         new_joint.set("angular_limit_z/upper_angle", PI)
 
 
-# Builds a joint basis from the connected bones.  The Z axis follows the bone
-# direction, Y points forward using the skeleton orientation as reference and X
-# is the sideways axis.  This mirrors Unity's approach of deriving joint frames
-# from the bone and its child direction.
-static func _joint_basis_from_bones(joint: Generic6DOFJoint3D, skeleton: Skeleton3D) -> Basis:
-    var z_axis: Vector3 = joint.transform.basis.z
-    var a: Node3D = joint.get_node_or_null(joint.node_a) as Node3D
-    var b: Node3D = joint.get_node_or_null(joint.node_b) as Node3D
-    if a and b:
-        var dir := (b.global_transform.origin - a.global_transform.origin).normalized()
-        if dir.length() > 0.0:
-            z_axis = dir
-
-    var ref: Vector3 = Vector3.UP
-    if abs(z_axis.dot(ref)) > 0.99:
-        ref = skeleton.global_transform.basis.z
-
-    var x_axis := ref.cross(z_axis).normalized()
-    if x_axis.length() == 0.0:
-        x_axis = ref.cross(Vector3.RIGHT).normalized()
-    var y_axis := z_axis.cross(x_axis).normalized()
-    return Basis(x_axis, y_axis, z_axis)
+# Previous helper for deriving joint bases has been replaced by
+# BoneOrientation.joint_basis_from_skeleton which performs the same task while
+# taking the global reference frame into account.
 
 # -- Limit application ------------------------------------------------------
 # -- Limit application ------------------------------------------------------

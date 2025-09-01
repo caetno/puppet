@@ -96,6 +96,7 @@ func _load_model(src: Node3D) -> void:
 	_viewport.add_child(env)
 	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
 	if skeleton:
+		BoneOrientation.load_cache(BoneOrientation.CACHE_PATH, skeleton)
 		if _profile.muscles.is_empty():
 			_profile.load_from_skeleton(skeleton)
 		else:
@@ -384,7 +385,7 @@ func _apply_bone_recursive(skeleton: Skeleton3D, bone_idx: int, parent_global: T
 
 func _axis_to_vector(axis: String, bone_name: String, skeleton: Skeleton3D) -> Vector3:
 	var basis: Basis = _bone_basis_from_skeleton(bone_name, skeleton)
-	var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name)
+	var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
 	if axis in ["front_back", "nod", "finger_open_close", "open_close"]:
 		return basis.x * sign.x
 	elif axis in ["left_right", "down_up", "tilt"]:
@@ -398,28 +399,5 @@ func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis
 	var idx := skeleton.find_bone(bone_name)
 	if idx == -1:
 		return Basis()
-
-	var bone_global: Transform3D = _base_global_poses.get(bone_name, Transform3D.IDENTITY)
-	var z_axis: Vector3 = -bone_global.basis.z
-
-	# Derive the bone direction from the first child if available.
-	for i in range(skeleton.get_bone_count()):
-		if skeleton.get_bone_parent(i) == idx:
-			var child_name := skeleton.get_bone_name(i)
-			var child_global: Transform3D = _base_global_poses.get(child_name, Transform3D.IDENTITY)
-			var dir := (child_global.origin - bone_global.origin)
-			if dir.length() > 0.0:
-				z_axis = -dir.normalized()
-				break
-
-	var ref: Vector3 = Vector3.UP
-	if abs(z_axis.dot(ref)) > 0.99:
-		ref = skeleton.global_transform.basis.x
-
-	var x_axis := ref.cross(z_axis).normalized()
-	if x_axis.length() == 0.0:
-		ref = skeleton.global_transform.basis.z
-		x_axis = ref.cross(z_axis).normalized()
-	var y_axis := z_axis.cross(x_axis).normalized()
-	var basis := Basis(x_axis, y_axis, z_axis)
-	return BoneOrientation.apply_rotations(bone_name, basis)
+	var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
+	return BoneOrientation.apply_rotations(bone_name, basis, skeleton)
