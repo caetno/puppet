@@ -2,25 +2,15 @@
 extends Window
 class_name MuscleWindow
 
-const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+const PuppetProfile = preload("res://addons/puppet/profile_resource.gd")
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 const DualSlider = preload("res://addons/puppet/dual_slider.gd")
-const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const OrientationBaker = preload("res://addons/puppet/bone_orientation.gd")
 const JointConverter = preload("res://addons/puppet/joint_converter.gd")
-
-# Per-bone degree-of-freedom rotation order mappings.
-const DOF_ORDER := {
-		"Neck": ["z", "x", "y"],
-		"Head": ["z", "x", "y"],
-		"LeftUpperArm": ["x", "z", "y"],
-		"RightUpperArm": ["x", "z", "y"],
-		"LeftUpperLeg": ["x", "z", "y"],
-		"RightUpperLeg": ["x", "z", "y"],
-}
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
-var _profile: MuscleProfile = MuscleProfile.new()
+var _profile: PuppetProfile = PuppetProfile.new()
 var _model: Node3D
 
 @onready var _list: VBoxContainer = $VBox/Main/Right/Scroll/List
@@ -29,6 +19,7 @@ var _model: Node3D
 @onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
 @onready var _tree: Tree = $VBox/Main/Left/Tree
 @onready var _reset_button: Button = $VBox/Top/ResetButton
+@onready var _rebake_button: Button = $VBox/Top/RebakeButton
 
 var _orbiting := false
 var _pivot: Node3D
@@ -50,6 +41,7 @@ func _ready() -> void:
 	close_requested.connect(func(): hide())
 	_setup_picker()
 	_reset_button.pressed.connect(_on_reset_pressed)
+	_rebake_button.pressed.connect(_on_rebake_pressed)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_viewport_container.gui_input.connect(_on_viewport_input)
 	_viewport.world_3d = World3D.new()
@@ -59,22 +51,22 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		hide()
 
 func _setup_picker() -> void:
-	_picker.base_type = "MuscleProfile"
-	_picker.edited_resource = _profile
-	_picker.resource_changed.connect(_on_profile_changed)
+        _picker.base_type = "PuppetProfile"
+        _picker.edited_resource = _profile
+        _picker.resource_changed.connect(_on_profile_changed)
 
 func _on_profile_changed(res: Resource) -> void:
-	if res:
-		_profile = res
-		if _profile.muscles.is_empty():
-			var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-			if skeleton:
-				_profile.load_from_skeleton(skeleton)
-	else:
-		_profile = MuscleProfile.new()
-		var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-		if skeleton:
-			_profile.load_from_skeleton(skeleton)
+        if res:
+                _profile = res
+                if _profile.muscles.is_empty():
+                        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+                        if skeleton:
+                                _profile.load_from_skeleton(skeleton)
+        else:
+                _profile = PuppetProfile.new()
+                var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+                if skeleton:
+                        _profile.load_from_skeleton(skeleton)
 	_populate_list()
 	_apply_all_muscles()
 
@@ -105,13 +97,13 @@ func _load_model(src: Node3D) -> void:
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.2, 0.2, 0.2)
 	_viewport.add_child(env)
-	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-	if skeleton:
-		BoneOrientation.generate_from_skeleton(skeleton)
-		if _profile.muscles.is_empty():
-			_profile.load_from_skeleton(skeleton)
-		else:
-			_profile.skeleton = _model.get_path_to(skeleton)
+        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+        if skeleton:
+                if _profile.muscles.is_empty():
+                        _profile.load_from_skeleton(skeleton)
+                else:
+                        _profile.skeleton = _model.get_path_to(skeleton)
+                        _profile.bake_bones(skeleton)
 	_cache_bone_poses()
 	_populate_tree()
 
@@ -141,17 +133,13 @@ func _populate_list() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 
-	_sliders.clear()
-	_group_sliders.clear()
-	_group_muscles = {
-		"Open Close": [],
-		"Left Right": [],
-		"Roll Left Right": [],
-		"In Out": [],
-		"Roll In Out": [],
-		"Finger Open Close": [],
-		"Finger In Out": [],
-	}
+        _sliders.clear()
+        _group_sliders.clear()
+        _group_muscles = {
+                "X": [],
+                "Y": [],
+                "Z": [],
+        }
 
 	var grouped: Dictionary = {}
 	for id in _profile.muscles.keys():
@@ -161,53 +149,31 @@ func _populate_list() -> void:
 			grouped[grp] = []
 		grouped[grp].append(id)
 
-		var axis: String = data.get("axis", "")
-		var body_grp: String = data.get("group", "")
-		if axis == "finger_open_close":
-			_group_muscles["Finger Open Close"].append(id)
-		elif axis == "finger_in_out":
-			_group_muscles["Finger In Out"].append(id)
-		elif axis == "tilt":
-			_group_muscles["Roll Left Right"].append(id)
-		elif axis in ["roll_in_out", "twist"]:
-			_group_muscles["Roll In Out"].append(id)
-		elif axis == "left_right":
-			if body_grp in ["Left Arm", "Right Arm", "Left Leg", "Right Leg"]:
-				_group_muscles["In Out"].append(id)
-			else:
-				_group_muscles["Left Right"].append(id)
-		else:
-			_group_muscles["Open Close"].append(id)
+                var axis: String = data.get("axis", "")
+                if _group_muscles.has(axis):
+                        _group_muscles[axis].append(id)
 
-	var header := Label.new()
-	header.text = "Muscle Type Groups"
+        var header := Label.new()
+        header.text = "Axis Groups"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_child(header)
-	var type_order := [
-		"Open Close",
-		"Left Right",
-		"Roll Left Right",
-		"In Out",
-		"Roll In Out",
-		"Finger Open Close",
-		"Finger In Out",
-	]
-	for g in type_order:
-		var row := HBoxContainer.new()
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_list.add_child(row)
-		var label := Label.new()
-		label.text = g
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var slider := HSlider.new()
-		slider.min_value = -1.0
-		slider.max_value = 1.0
-		slider.step = 0.01
-		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		slider.value_changed.connect(_on_group_slider_changed.bind(g))
-		row.add_child(slider)
-		_group_sliders[g] = slider
+        var type_order := ["X", "Y", "Z"]
+        for g in type_order:
+                var row := HBoxContainer.new()
+                row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                _list.add_child(row)
+                var label := Label.new()
+                label.text = "Axis %s" % g
+                label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                row.add_child(label)
+                var slider := HSlider.new()
+                slider.min_value = -1.0
+                slider.max_value = 1.0
+                slider.step = 0.01
+                slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                slider.value_changed.connect(_on_group_slider_changed.bind(g))
+                row.add_child(slider)
+                _group_sliders[g] = slider
 
 	var order := ["Body", "Head", "Left Arm", "Left Hand", "Right Arm", "Right Hand", "Left Leg", "Right Leg", "Misc"]
 	for grp in order:
@@ -329,6 +295,10 @@ func _on_group_slider_changed(value: float, group_name: String) -> void:
 	_apply_all_muscles()
 
 func _on_reset_pressed() -> void:
+	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+	if skeleton:
+		for i in range(skeleton.get_bone_count()):
+			skeleton.set_bone_local_pose_override(i, Transform3D(), 0.0, false)
 	for id in _profile.muscles.keys():
 		var muscle = _profile.muscles[id]
 		muscle["default_deg"] = 0.0
@@ -339,6 +309,11 @@ func _on_reset_pressed() -> void:
 		_group_sliders[g].set_value_no_signal(0.0)
 	_apply_all_muscles()
 
+func _on_rebake_pressed() -> void:
+	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+	if skeleton:
+		BoneOrientation.generate_from_skeleton(skeleton)
+		_apply_all_muscles()
 func _cache_bone_poses() -> void:
 	_base_global_poses.clear()
 	_base_local_poses.clear()
@@ -376,8 +351,8 @@ func _apply_all_muscles() -> void:
 		var axis_idx := _axis_to_index(data.get("axis", ""))
 		if axis_idx == -1:
 			continue
-		var sign := BoneOrientation.get_limit_sign(bone_name, skeleton)
-		var sign_val = [sign.x, sign.y, sign.z][axis_idx]
+                var sign := _profile.get_mirror(bone_name)
+                var sign_val = [sign.x, sign.y, sign.z][axis_idx]
 		var angle = deg_to_rad(data.get("default_deg", 0.0)) * sign_val
 		var angles: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
 		if axis_idx == 0:
@@ -413,8 +388,8 @@ func _axis_to_index(axis: String) -> int:
 	return JointConverter.axis_to_index(axis)
 
 func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
-	var order := DOF_ORDER.get(bone, ["x", "y", "z"])
-	var parts := {
+        var order := _profile.get_dof_order(bone)
+        var parts := {
 		"x": Basis(basis.x, angles.x),
 		"y": Basis(basis.y, angles.y),
 		"z": Basis(basis.z, angles.z),
@@ -426,8 +401,8 @@ func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
 
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
-	var idx := skeleton.find_bone(bone_name)
-	if idx == -1:
-		return Basis()
-	var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
-	return BoneOrientation.apply_rotations(bone_name, basis, skeleton)
+        var idx := skeleton.find_bone(bone_name)
+        if idx == -1:
+                return Basis()
+        var basis := OrientationBaker.joint_basis_from_skeleton(skeleton, idx)
+        return Basis(_profile.get_pre_quaternion(bone_name)) * basis
