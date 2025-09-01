@@ -4,6 +4,19 @@ class_name JointConverter
 const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 
+const AXIS_TO_INDEX := {
+        "front_back": 0,
+        "nod": 0,
+        "down_up": 0,
+        "finger_in_out": 0,
+        "open_close": 0,
+        "left_right": 1,
+        "tilt": 2,
+        "roll_in_out": 2,
+        "twist": 2,
+        "finger_open_close": 2,
+}
+
 ## Utility functions for converting joints and applying limits.
 
 
@@ -115,9 +128,9 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 		var min_deg: float = data.get("min_deg", -180.0)
 		var max_deg: float = data.get("max_deg", 180.0)
 
-		var axis_char: String = _axis_to_char(axis)
-		if axis_char == "":
-			continue
+                var axis_char: String = _axis_to_char(axis)
+                if axis_char == "":
+                        continue
 
 		var base := "angular_limit_%s" % axis_char
 		joint.set("%s/enabled" % base, true)
@@ -126,13 +139,16 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 
 
 # -- Helpers ----------------------------------------------------------------
+static func axis_to_index(axis: String) -> int:
+        return AXIS_TO_INDEX.get(axis, -1)
+
 static func _axis_to_char(axis: String) -> String:
-	# Maps the profile axis names to the corresponding Generic6DOFJoint axis.
-        if axis in ["front_back", "nod", "down_up", "finger_in_out", "open_close"]:
-                return "x"
-        elif axis in ["left_right"]:
-                return "y"
-        elif axis in ["tilt", "roll_in_out", "twist", "finger_open_close"]:
-                return "z"
-        else:
-                return ""
+        match axis_to_index(axis):
+                0:
+                        return "x"
+                1:
+                        return "y"
+                2:
+                        return "z"
+                _:
+                        return ""
