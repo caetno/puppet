@@ -2,36 +2,17 @@
 class_name BoneOrientation
 
 ## Stores pre/post rotation and limit sign data for humanoid bones.
-# The data can be generated from Unity's Avatar API and cached as JSON so the
-# addon can use the information without requiring Unity at runtime.
-
-const CACHE_PATH := "res://addons/puppet/bone_orientation_data.json"
+# The data can be generated from Unity's Avatar API or derived from a Godot
+# skeleton at runtime.
 
 static var _pre_rotations: Dictionary = {}
 static var _post_rotations: Dictionary = {}
 static var _limit_signs: Dictionary = {}
-static var _loaded := false
 
-## Ensures the cached orientation data is loaded from disk.
-static func load_cache(path: String = CACHE_PATH, skeleton: Skeleton3D = null) -> void:
-    if not _loaded:
-        _loaded = true
-        if FileAccess.file_exists(path):
-            var file := FileAccess.open(path, FileAccess.READ)
-            if file:
-                var json := JSON.new()
-                if json.parse(file.get_as_text()) == OK:
-                    var data: Dictionary = json.data
-                    _pre_rotations = _parse_basis_dict(data.get("pre_rotations", {}))
-                    _post_rotations = _parse_basis_dict(data.get("post_rotations", {}))
-                    _limit_signs = _parse_vector_dict(data.get("limit_signs", {}))
-    if skeleton:
-        generate_from_skeleton(skeleton)
-
-## Generates orientation data from a Unity export and saves it to the cache.
+## Populates orientation data from a Unity export.
 # `unity_json_path` should be a JSON file produced by a Unity editor script that
 # queries Avatar.GetPreRotation / GetPostRotation / GetLimitSign for each bone.
-static func generate_from_unity(unity_json_path: String, cache_path: String = CACHE_PATH) -> void:
+static func generate_from_unity(unity_json_path: String) -> void:
     var file := FileAccess.open(unity_json_path, FileAccess.READ)
     if not file:
         push_warning("Unity export file not found: %s" % unity_json_path)
@@ -44,22 +25,23 @@ static func generate_from_unity(unity_json_path: String, cache_path: String = CA
     _pre_rotations = _parse_basis_dict(data.get("preRotations", data.get("pre_rotations", {})))
     _post_rotations = _parse_basis_dict(data.get("postRotations", data.get("post_rotations", {})))
     _limit_signs = _parse_vector_dict(data.get("limitSigns", data.get("limit_signs", {})))
-    _save_cache(cache_path)
 
 ## Generates orientation data for the bones present in `skeleton`.
-## Results are stored in the static dictionaries, augmenting any cache data.
 static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
     if not skeleton:
         return
+
+    _pre_rotations.clear()
+    _post_rotations.clear()
+    _limit_signs.clear()
 
     var ref_basis := _reference_basis_from_skeleton(skeleton)
 
     for i in skeleton.get_bone_count():
         var name := skeleton.get_bone_name(i)
-        if _pre_rotations.has(name) and _post_rotations.has(name) and _limit_signs.has(name):
-            continue
 
-        var joint_basis := _derive_bone_basis(skeleton, i, ref_basis)
+        var aligned_ref := _align_hand_reference(skeleton, i, ref_basis)
+        var joint_basis := _derive_bone_basis(skeleton, i, aligned_ref)
 
         var bone_global := _get_global_rest(skeleton, i)
 
@@ -82,15 +64,18 @@ static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
         )
 
 static func get_pre_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
-    load_cache(CACHE_PATH, skeleton)
+    if skeleton and _pre_rotations.is_empty():
+        generate_from_skeleton(skeleton)
     return _pre_rotations.get(bone, Basis())
 
 static func get_post_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
-    load_cache(CACHE_PATH, skeleton)
+    if skeleton and _post_rotations.is_empty():
+        generate_from_skeleton(skeleton)
     return _post_rotations.get(bone, Basis())
 
 static func get_limit_sign(bone: String, skeleton: Skeleton3D = null) -> Vector3:
-    load_cache(CACHE_PATH, skeleton)
+    if skeleton and _limit_signs.is_empty():
+        generate_from_skeleton(skeleton)
     return _limit_signs.get(bone, Vector3.ONE)
 
 static func apply_rotations(bone: String, basis: Basis, skeleton: Skeleton3D = null) -> Basis:
@@ -188,9 +173,80 @@ static func _derive_bone_basis(skeleton: Skeleton3D, bone: int, ref_basis: Basis
 ## Exposed helper so other scripts can derive a joint basis from the skeleton's
 ## geometry.
 static func joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
-    load_cache(CACHE_PATH, skeleton)
     var ref := _reference_basis_from_skeleton(skeleton)
+    ref = _align_hand_reference(skeleton, bone, ref)
     return _derive_bone_basis(skeleton, bone, ref)
+
+## Adjusts the reference basis so finger curling follows the forearm direction.
+## Unity's avatar mapper re‑orients the hand using the vector between the lower
+## arm and the hand before mapping finger bones.  This mirrors that behavior so
+## the `finger_open_close` muscle curls the fingers instead of moving them
+## sideways.
+static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -> Basis:
+    if not skeleton:
+        push_warning("No skeleton provided; skipping hand alignment")
+        return ref
+
+    var left_hand := _find_bone(skeleton, ["LeftHand", "LeftWrist"])
+    var right_hand := _find_bone(skeleton, ["RightHand", "RightWrist"])
+
+    var source_axis := Vector3.ZERO
+    var target_axis := Vector3.ZERO
+
+    if left_hand != -1 and _is_descendant_of(skeleton, bone, left_hand):
+        var lower := _find_bone(skeleton, ["LeftLowerArm", "LeftForeArm", "LeftForearm"])
+        if lower == -1:
+            push_warning("Left forearm bone not found; finger alignment skipped")
+            return ref
+        var lower_pos := _get_global_rest(skeleton, lower).origin
+        var hand_pos := _get_global_rest(skeleton, left_hand).origin
+        target_axis = hand_pos - lower_pos
+        if target_axis.length() == 0.0:
+            push_warning("Left hand and forearm positions are identical; finger alignment skipped")
+            return ref
+        target_axis = target_axis.normalized()
+        source_axis = -ref.x
+    elif right_hand != -1 and _is_descendant_of(skeleton, bone, right_hand):
+        var lower := _find_bone(skeleton, ["RightLowerArm", "RightForeArm", "RightForearm"])
+        if lower == -1:
+            push_warning("Right forearm bone not found; finger alignment skipped")
+            return ref
+        var lower_pos := _get_global_rest(skeleton, lower).origin
+        var hand_pos := _get_global_rest(skeleton, right_hand).origin
+        target_axis = hand_pos - lower_pos
+        if target_axis.length() == 0.0:
+            push_warning("Right hand and forearm positions are identical; finger alignment skipped")
+            return ref
+        target_axis = target_axis.normalized()
+        source_axis = ref.x
+    else:
+        if left_hand == -1 and right_hand == -1:
+            var name := skeleton.get_bone_name(bone).to_lower()
+            if name.find("finger") != -1 or name.find("hand") != -1:
+                push_warning("Hand bones not found; finger alignment skipped for %s" % skeleton.get_bone_name(bone))
+        return ref
+
+    if source_axis.length() == 0.0 or target_axis.length() == 0.0:
+        push_warning("Invalid axis computed for hand alignment; finger alignment skipped")
+        return ref
+
+    var q := Quaternion(source_axis, target_axis)
+    return Basis(q) * ref
+
+static func _find_bone(skeleton: Skeleton3D, names: Array) -> int:
+    for n in names:
+        var idx := skeleton.find_bone(n)
+        if idx != -1:
+            return idx
+    return -1
+
+static func _is_descendant_of(skeleton: Skeleton3D, bone: int, ancestor: int) -> bool:
+    var p := bone
+    while p != -1:
+        if p == ancestor:
+            return true
+        p = skeleton.get_bone_parent(p)
+    return false
 
 # -- Serialization helpers --------------------------------------------------
 
@@ -211,28 +267,3 @@ static func _parse_vector_dict(src: Dictionary) -> Dictionary:
             result[k] = Vector3(arr[0], arr[1], arr[2])
     return result
 
-static func _serialize_basis_dict(src: Dictionary) -> Dictionary:
-    var res := {}
-    for k in src.keys():
-        var b: Basis = src[k]
-        var q: Quaternion = Quaternion(b)
-        res[k] = [q.x, q.y, q.z, q.w]
-    return res
-
-static func _serialize_vector_dict(src: Dictionary) -> Dictionary:
-    var res := {}
-    for k in src.keys():
-        var v: Vector3 = src[k]
-        res[k] = [v.x, v.y, v.z]
-    return res
-
-static func _save_cache(path: String) -> void:
-    var data := {
-        "pre_rotations": _serialize_basis_dict(_pre_rotations),
-        "post_rotations": _serialize_basis_dict(_post_rotations),
-        "limit_signs": _serialize_vector_dict(_limit_signs),
-    }
-    var file := FileAccess.open(path, FileAccess.WRITE)
-    if file:
-        file.store_string(JSON.stringify(data))
-        file.close()

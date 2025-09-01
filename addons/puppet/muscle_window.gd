@@ -96,7 +96,7 @@ func _load_model(src: Node3D) -> void:
 	_viewport.add_child(env)
 	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
 	if skeleton:
-		BoneOrientation.load_cache(BoneOrientation.CACHE_PATH, skeleton)
+                BoneOrientation.generate_from_skeleton(skeleton)
 		if _profile.muscles.is_empty():
 			_profile.load_from_skeleton(skeleton)
 		else:
