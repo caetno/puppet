@@ -5,16 +5,9 @@ const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
 const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
 
 const AXIS_TO_INDEX := {
-		"front_back": 0,
-		"nod": 0,
-		"down_up": 0,
-		"finger_in_out": 0,
-		"open_close": 0,
-		"left_right": 1,
-		"tilt": 2,
-		"roll_in_out": 2,
-		"twist": 2,
-		"finger_open_close": 2,
+                "X": 0,
+                "Y": 1,
+                "Z": 2,
 }
 
 ## Utility functions for converting joints and applying limits.
@@ -140,15 +133,8 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 
 # -- Helpers ----------------------------------------------------------------
 static func axis_to_index(axis: String) -> int:
-		return AXIS_TO_INDEX.get(axis, -1)
+                return AXIS_TO_INDEX.get(axis, -1)
 
 static func _axis_to_char(axis: String) -> String:
-		match axis_to_index(axis):
-				0:
-						return "x"
-				1:
-						return "y"
-				2:
-						return "z"
-				_:
-						return ""
+                var idx := axis_to_index(axis)
+                return ["x", "y", "z"].get(idx, "")

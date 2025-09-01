@@ -141,17 +141,13 @@ func _populate_list() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 
-	_sliders.clear()
-	_group_sliders.clear()
-	_group_muscles = {
-		"Open Close": [],
-		"Left Right": [],
-		"Roll Left Right": [],
-		"In Out": [],
-		"Roll In Out": [],
-		"Finger Open Close": [],
-		"Finger In Out": [],
-	}
+        _sliders.clear()
+        _group_sliders.clear()
+        _group_muscles = {
+                "X": [],
+                "Y": [],
+                "Z": [],
+        }
 
 	var grouped: Dictionary = {}
 	for id in _profile.muscles.keys():
@@ -161,53 +157,31 @@ func _populate_list() -> void:
 			grouped[grp] = []
 		grouped[grp].append(id)
 
-		var axis: String = data.get("axis", "")
-		var body_grp: String = data.get("group", "")
-		if axis == "finger_open_close":
-			_group_muscles["Finger Open Close"].append(id)
-		elif axis == "finger_in_out":
-			_group_muscles["Finger In Out"].append(id)
-		elif axis == "tilt":
-			_group_muscles["Roll Left Right"].append(id)
-		elif axis in ["roll_in_out", "twist"]:
-			_group_muscles["Roll In Out"].append(id)
-		elif axis == "left_right":
-			if body_grp in ["Left Arm", "Right Arm", "Left Leg", "Right Leg"]:
-				_group_muscles["In Out"].append(id)
-			else:
-				_group_muscles["Left Right"].append(id)
-		else:
-			_group_muscles["Open Close"].append(id)
+                var axis: String = data.get("axis", "")
+                if _group_muscles.has(axis):
+                        _group_muscles[axis].append(id)
 
-	var header := Label.new()
-	header.text = "Muscle Type Groups"
+        var header := Label.new()
+        header.text = "Axis Groups"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_child(header)
-	var type_order := [
-		"Open Close",
-		"Left Right",
-		"Roll Left Right",
-		"In Out",
-		"Roll In Out",
-		"Finger Open Close",
-		"Finger In Out",
-	]
-	for g in type_order:
-		var row := HBoxContainer.new()
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_list.add_child(row)
-		var label := Label.new()
-		label.text = g
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var slider := HSlider.new()
-		slider.min_value = -1.0
-		slider.max_value = 1.0
-		slider.step = 0.01
-		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		slider.value_changed.connect(_on_group_slider_changed.bind(g))
-		row.add_child(slider)
-		_group_sliders[g] = slider
+        var type_order := ["X", "Y", "Z"]
+        for g in type_order:
+                var row := HBoxContainer.new()
+                row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                _list.add_child(row)
+                var label := Label.new()
+                label.text = "Axis %s" % g
+                label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                row.add_child(label)
+                var slider := HSlider.new()
+                slider.min_value = -1.0
+                slider.max_value = 1.0
+                slider.step = 0.01
+                slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+                slider.value_changed.connect(_on_group_slider_changed.bind(g))
+                row.add_child(slider)
+                _group_sliders[g] = slider
 
 	var order := ["Body", "Head", "Left Arm", "Left Hand", "Right Arm", "Right Hand", "Left Leg", "Right Leg", "Misc"]
 	for grp in order:
