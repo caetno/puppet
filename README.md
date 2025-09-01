@@ -9,6 +9,8 @@ This project contains a Godot editor plugin that will provide a muscle configura
   - `muscle_data.gd` – stub muscle definitions
   - `profile_resource.gd` – resource for storing profiles
   - `joint_converter.gd` – conversion and limit application stubs
+  - `bone_orientation.gd` – runtime generation of bone orientation data; the JSON cache is optional and only used as a speed-up for standard rigs
   - `io.gd` – JSON import/export helpers
 
 Enable the plugin in **Project > Project Settings > Plugins** after opening the project in Godot.
+The addon will automatically generate orientation data for any bones missing from the cache, allowing non-standard skeletons to work without additional setup.
