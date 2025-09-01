@@ -201,38 +201,43 @@ static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -
 
 	var left_hand := _find_bone(skeleton, ["LeftHand", "LeftWrist"])
 	var right_hand := _find_bone(skeleton, ["RightHand", "RightWrist"])
+	# Bone names may include prefixes (e.g. "mixamorig:LeftHand").
+	# _find_bone performs suffix matching so such variants are handled.
 	var hand := -1
 	var lower := -1
 	var middle := -1
 	if left_hand != -1 and _is_descendant_of(skeleton, bone, left_hand):
 		hand = left_hand
 		lower = _find_bone(skeleton, ["LeftLowerArm", "LeftForeArm", "LeftForearm"])
-		middle = _find_bone(skeleton, ["LeftMiddleProximal"])
+		middle = _find_bone(skeleton, ["LeftMiddleProximal", "LeftHandMiddle1"])
 	elif right_hand != -1 and _is_descendant_of(skeleton, bone, right_hand):
 		hand = right_hand
 		lower = _find_bone(skeleton, ["RightLowerArm", "RightForeArm", "RightForearm"])
-		middle = _find_bone(skeleton, ["RightMiddleProximal"])
+		middle = _find_bone(skeleton, ["RightMiddleProximal", "RightHandMiddle1"])
 	else:
 		if left_hand == -1 and right_hand == -1:
 			var name := skeleton.get_bone_name(bone).to_lower()
 			if name.find("finger") != -1 or name.find("hand") != -1:
-				push_warning(
-					(
-						"Hand bones not found; finger alignment skipped for %s"
-						% skeleton.get_bone_name(bone)
-					)
+				push_error(
+					"Hand bones not found; finger alignment skipped for %s" % skeleton.get_bone_name(bone)
 				)
 		return ref
 
-	if lower == -1 or middle == -1 or hand == -1:
-		push_warning("Required hand bones not found; finger alignment skipped")
+	if lower == -1 or hand == -1:
+		push_error("Required forearm/hand bones not found; finger alignment skipped")
 		return ref
+
+	if middle == -1:
+		push_error("Middle finger bone not found; using fallback orientation")
+		var hand_pos_f := _get_global_rest(skeleton, hand).origin
+		var lower_pos_f := _get_global_rest(skeleton, lower).origin
+		return _fallback_hand_orientation(skeleton, hand, hand_pos_f - lower_pos_f, ref)
 
 	var hand_pos := _get_global_rest(skeleton, hand).origin
 	var lower_pos := _get_global_rest(skeleton, lower).origin
 	var hand_dir := hand_pos - lower_pos
 	if hand_dir.length() == 0.0:
-		push_warning("Hand and forearm positions are identical; finger alignment skipped")
+		push_error("Hand and forearm positions are identical; finger alignment skipped")
 		return ref
 
 	var middle_child := -1
@@ -241,19 +246,19 @@ static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -
 			middle_child = j
 			break
 	if middle_child == -1:
-		push_warning("Middle finger child not found; finger alignment skipped")
-		return ref
+		push_error("Middle finger child not found; using fallback orientation")
+		return _fallback_hand_orientation(skeleton, hand, hand_dir, ref)
 	var middle_pos := _get_global_rest(skeleton, middle).origin
 	var middle_child_pos := _get_global_rest(skeleton, middle_child).origin
 	var middle_dir := middle_child_pos - middle_pos
 	if middle_dir.length() == 0.0:
-		push_warning("Middle finger bone has zero length; finger alignment skipped")
-		return ref
+		push_error("Middle finger bone has zero length; using fallback orientation")
+		return _fallback_hand_orientation(skeleton, hand, hand_dir, ref)
 
 	var palm_normal := hand_dir.cross(middle_dir)
 	if palm_normal.length() == 0.0:
-		push_warning("Invalid palm normal; finger alignment skipped")
-		return ref
+		push_warning("Invalid palm normal; using fallback orientation")
+		return _fallback_hand_orientation(skeleton, hand, hand_dir, ref)
 
 	hand_dir = hand_dir.normalized()
 	palm_normal = palm_normal.normalized()
@@ -272,11 +277,35 @@ static func _align_hand_reference(skeleton: Skeleton3D, bone: int, ref: Basis) -
 	return Basis(hand_dir, y_axis, z_axis)
 
 
+static func _fallback_hand_orientation(skeleton: Skeleton3D, hand: int, hand_dir: Vector3, ref: Basis) -> Basis:
+	if hand_dir.length() == 0.0:
+		return ref
+	var name := skeleton.get_bone_name(hand)
+	if _pre_rotations.has(name) or _post_rotations.has(name):
+		var basis: Basis = _pre_rotations.get(name, Basis()) * _post_rotations.get(name, Basis())
+		return basis.orthonormalized()
+	hand_dir = hand_dir.normalized()
+	var y_axis := ref.y - hand_dir * ref.y.dot(hand_dir)
+	if y_axis.length() == 0.0:
+		y_axis = ref.z.cross(hand_dir)
+	if y_axis.length() == 0.0:
+		y_axis = Vector3.UP.cross(hand_dir)
+	y_axis = y_axis.normalized()
+	var z_axis := hand_dir.cross(y_axis).normalized()
+	return Basis(hand_dir, y_axis, z_axis)
+
+
 static func _find_bone(skeleton: Skeleton3D, names: Array) -> int:
 	for n in names:
 		var idx := skeleton.find_bone(n)
 		if idx != -1:
 			return idx
+	for i in skeleton.get_bone_count():
+		var name := skeleton.get_bone_name(i).to_lower()
+		for n in names:
+			var target := String(n).to_lower()
+			if name.ends_with(target):
+				return i
 	return -1
 
 
