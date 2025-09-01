@@ -85,7 +85,8 @@ static func get_limit_sign(bone: String, skeleton: Skeleton3D = null) -> Vector3
 
 
 static func apply_rotations(bone: String, basis: Basis, skeleton: Skeleton3D = null) -> Basis:
-	return get_pre_rotation(bone, skeleton) * basis * get_post_rotation(bone, skeleton)
+	var result := get_pre_rotation(bone, skeleton) * basis * get_post_rotation(bone, skeleton)
+	return result.orthonormalized()
 
 
 # -- Runtime generation helpers ---------------------------------------------
