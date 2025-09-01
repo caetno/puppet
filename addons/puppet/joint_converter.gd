@@ -1,8 +1,8 @@
 @tool
 class_name JointConverter
 
-const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
-const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const PuppetProfile = preload("res://addons/puppet/profile_resource.gd")
+const OrientationBaker = preload("res://addons/puppet/bone_orientation.gd")
 
 const AXIS_TO_INDEX := {
 		"front_back": 0,
@@ -17,6 +17,18 @@ const AXIS_TO_INDEX := {
 		"finger_open_close": 2,
 }
 
+# Per-bone degree-of-freedom rotation order mappings.
+# These specify the order in which canonical axis rotations are composed for
+# specific bones.  Bones not listed use the default X->Y->Z order.
+const DOF_ORDER := {
+		"Neck": ["z", "x", "y"],
+		"Head": ["z", "x", "y"],
+		"LeftUpperArm": ["x", "z", "y"],
+		"RightUpperArm": ["x", "z", "y"],
+		"LeftUpperLeg": ["x", "z", "y"],
+		"RightUpperLeg": ["x", "z", "y"],
+}
+
 ## Utility functions for converting joints and applying limits.
 
 
@@ -28,12 +40,11 @@ const AXIS_TO_INDEX := {
 # skeleton and replaces every existing `Joint3D` descendant with a
 # `Generic6DOFJoint3D` while preserving the original attachment nodes and
 # transform.
-static func convert_to_6dof(skeleton: Skeleton3D) -> void:
-	if not skeleton:
-		return
-	BoneOrientation.generate_from_skeleton(skeleton)
+static func convert_to_6dof(profile: PuppetProfile, skeleton: Skeleton3D) -> void:
+        if not skeleton:
+                return
 
-	# Collect all joints that need to be converted.  We gather them first so we
+	# Collect all joints that need to be converted.	 We gather them first so we
 	# can safely modify the scene tree while iterating.
 
 	var to_convert: Array = []
@@ -64,19 +75,19 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 		old_joint.queue_free()
 
 		# Configure the joint frame so X is the sideways axis, Y is forward and
-		# Z follows the bone direction.  This mirrors Unity's humanoid setup
+		# Z follows the bone direction.	 This mirrors Unity's humanoid setup
 		# which derives the frame from the bone and its child direction.
-		var bone_name := new_joint.name
-		var idx := skeleton.find_bone(bone_name)
-		if idx == -1:
-			continue
-		var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
-		basis = BoneOrientation.apply_rotations(bone_name, basis, skeleton)
-		new_joint.transform.basis = basis
-		var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
-		new_joint.set("angular_limit_x/axis", basis.x * sign.x)
-		new_joint.set("angular_limit_y/axis", basis.y * sign.y)
-		new_joint.set("angular_limit_z/axis", basis.z * sign.z)
+                var bone_name := new_joint.name
+                var idx := skeleton.find_bone(bone_name)
+                if idx == -1:
+                        continue
+                var basis := OrientationBaker.joint_basis_from_skeleton(skeleton, idx)
+                basis = Basis(profile.get_pre_quaternion(bone_name)) * basis
+                new_joint.transform.basis = basis
+                var sign: Vector3 = profile.get_mirror(bone_name)
+                new_joint.set("angular_limit_x/axis", basis.x * sign.x)
+                new_joint.set("angular_limit_y/axis", basis.y * sign.y)
+                new_joint.set("angular_limit_z/axis", basis.z * sign.z)
 
 		new_joint.set("angular_limit_x/enabled", true)
 		new_joint.set("angular_limit_y/enabled", true)
@@ -90,17 +101,17 @@ static func convert_to_6dof(skeleton: Skeleton3D) -> void:
 
 
 # Previous helper for deriving joint bases has been replaced by
-# BoneOrientation.joint_basis_from_skeleton which performs the same task while
+# OrientationBaker.joint_basis_from_skeleton which performs the same task while
 # taking the global reference frame into account.
 
 
 # -- Limit application ------------------------------------------------------
 # -- Limit application ------------------------------------------------------
-# Reads limit information from a `MuscleProfile` and applies it to the 6‑DOF
+# Reads limit information from a `PuppetProfile` and applies it to the 6‑DOF
 # joints generated above.  Each muscle entry defines a bone, an axis and the
-# minimum / maximum angles in degrees.  The limits are translated to the
+# minimum / maximum angles in degrees.	The limits are translated to the
 # corresponding joint properties.
-static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
+static func apply_limits(profile: PuppetProfile, skeleton: Skeleton3D) -> void:
 	if not profile or not skeleton:
 		return
 
@@ -138,7 +149,80 @@ static func apply_limits(profile: MuscleProfile, skeleton: Skeleton3D) -> void:
 		joint.set("%s/upper_angle" % base, deg_to_rad(max_deg))
 
 
+# -- Muscle application -----------------------------------------------------
+# Applies muscle values to the given skeleton.	Rotations are composed in the
+# canonical joint frame using baked BoneSettings orientation data.  Muscle
+# values are mapped between their minimum/center/maximum limits and mirrored
+# using the limit sign so left/right bones behave consistently.	 The resulting
+# transforms are written as bone poses relative to the rest pose so repeated
+# calls do not accumulate rotation.
+static func apply_muscles(profile: MuscleProfile, skeleton: Skeleton3D, values: Dictionary) -> void:
+	if not profile or not skeleton:
+		return
+
+	skeleton.reset_bone_poses()
+
+	# Accumulate Euler angles for each bone in radians.
+	var bone_angles: Dictionary = {}
+	for id in profile.muscles.keys():
+		var data: Dictionary = profile.muscles[id]
+		var bone_name: String = data.get("bone_ref", "")
+		if bone_name.is_empty():
+			continue
+
+		var axis_idx: int = axis_to_index(data.get("axis", ""))
+		if axis_idx == -1:
+			continue
+
+		var value: float = values.get(id, 0.0)
+		var min_deg: float = data.get("min_deg", -180.0)
+		var max_deg: float = data.get("max_deg", 180.0)
+		var center_deg: float = data.get("default_deg", 0.0)
+
+		var angle_deg: float = center_deg
+		if value >= 0.0:
+			angle_deg = center_deg + (max_deg - center_deg) * value
+		else:
+			angle_deg = center_deg + (center_deg - min_deg) * value
+
+		var sign: Vector3 = BoneOrientation.get_limit_sign(bone_name, skeleton)
+		var sign_val: float = [sign.x, sign.y, sign.z][axis_idx]
+		var angle: float = deg_to_rad(angle_deg) * sign_val
+
+		var current: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
+		if axis_idx == 0:
+			current.x += angle
+		elif axis_idx == 1:
+			current.y += angle
+		else:
+			current.z += angle
+		bone_angles[bone_name] = current
+
+	for bone_name in bone_angles.keys():
+		var idx := skeleton.find_bone(bone_name)
+		if idx == -1:
+			continue
+		var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
+		basis = BoneOrientation.apply_rotations(bone_name, basis, skeleton)
+		var rot := _compose_rotation(basis, bone_angles[bone_name], bone_name)
+		var rest: Transform3D = skeleton.get_bone_rest(idx)
+		var local_pose := Transform3D(rest.basis * rot, rest.origin)
+		skeleton.set_bone_pose(idx, local_pose)
+
+
 # -- Helpers ----------------------------------------------------------------
+static func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
+		var order := DOF_ORDER.get(bone, ["x", "y", "z"])
+		var parts := {
+				"x": Basis(basis.x, angles.x),
+				"y": Basis(basis.y, angles.y),
+				"z": Basis(basis.z, angles.z),
+		}
+		var rot := Basis()
+		for k in order:
+				rot = rot * parts[k]
+		return rot
+
 static func axis_to_index(axis: String) -> int:
 		return AXIS_TO_INDEX.get(axis, -1)
 

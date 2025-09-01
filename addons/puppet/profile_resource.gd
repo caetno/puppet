@@ -1,8 +1,9 @@
 @tool
 extends Resource
-class_name MuscleProfile
+class_name PuppetProfile
 
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
+const OrientationBaker = preload("res://addons/puppet/bone_orientation.gd")
 
 ## Resource storing muscle configuration values for a humanoid avatar.
 @export var skeleton: NodePath
@@ -18,6 +19,7 @@ class BoneSettings:
         var mirror: String = ""
         var limits: Array = []
         var translate_dof: Vector3 = Vector3.ZERO
+
 
 const UNITY_BONES := [
 	"Hips",

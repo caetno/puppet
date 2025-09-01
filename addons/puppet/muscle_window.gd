@@ -2,25 +2,15 @@
 extends Window
 class_name MuscleWindow
 
-const MuscleProfile = preload("res://addons/puppet/profile_resource.gd")
+const PuppetProfile = preload("res://addons/puppet/profile_resource.gd")
 const MuscleData = preload("res://addons/puppet/muscle_data.gd")
 const DualSlider = preload("res://addons/puppet/dual_slider.gd")
-const BoneOrientation = preload("res://addons/puppet/bone_orientation.gd")
+const OrientationBaker = preload("res://addons/puppet/bone_orientation.gd")
 const JointConverter = preload("res://addons/puppet/joint_converter.gd")
-
-# Per-bone degree-of-freedom rotation order mappings.
-const DOF_ORDER := {
-		"Neck": ["z", "x", "y"],
-		"Head": ["z", "x", "y"],
-		"LeftUpperArm": ["x", "z", "y"],
-		"RightUpperArm": ["x", "z", "y"],
-		"LeftUpperLeg": ["x", "z", "y"],
-		"RightUpperLeg": ["x", "z", "y"],
-}
 
 ## Editor window for muscle configuration.
 var editor_plugin: EditorPlugin
-var _profile: MuscleProfile = MuscleProfile.new()
+var _profile: PuppetProfile = PuppetProfile.new()
 var _model: Node3D
 
 @onready var _list: VBoxContainer = $VBox/Main/Right/Scroll/List
@@ -59,22 +49,22 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		hide()
 
 func _setup_picker() -> void:
-	_picker.base_type = "MuscleProfile"
-	_picker.edited_resource = _profile
-	_picker.resource_changed.connect(_on_profile_changed)
+        _picker.base_type = "PuppetProfile"
+        _picker.edited_resource = _profile
+        _picker.resource_changed.connect(_on_profile_changed)
 
 func _on_profile_changed(res: Resource) -> void:
-	if res:
-		_profile = res
-		if _profile.muscles.is_empty():
-			var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-			if skeleton:
-				_profile.load_from_skeleton(skeleton)
-	else:
-		_profile = MuscleProfile.new()
-		var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-		if skeleton:
-			_profile.load_from_skeleton(skeleton)
+        if res:
+                _profile = res
+                if _profile.muscles.is_empty():
+                        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+                        if skeleton:
+                                _profile.load_from_skeleton(skeleton)
+        else:
+                _profile = PuppetProfile.new()
+                var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+                if skeleton:
+                        _profile.load_from_skeleton(skeleton)
 	_populate_list()
 	_apply_all_muscles()
 
@@ -105,13 +95,13 @@ func _load_model(src: Node3D) -> void:
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.2, 0.2, 0.2)
 	_viewport.add_child(env)
-	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
-	if skeleton:
-		BoneOrientation.generate_from_skeleton(skeleton)
-		if _profile.muscles.is_empty():
-			_profile.load_from_skeleton(skeleton)
-		else:
-			_profile.skeleton = _model.get_path_to(skeleton)
+        var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+        if skeleton:
+                if _profile.muscles.is_empty():
+                        _profile.load_from_skeleton(skeleton)
+                else:
+                        _profile.skeleton = _model.get_path_to(skeleton)
+                        _profile.bake_bones(skeleton)
 	_cache_bone_poses()
 	_populate_tree()
 
@@ -376,8 +366,8 @@ func _apply_all_muscles() -> void:
 		var axis_idx := _axis_to_index(data.get("axis", ""))
 		if axis_idx == -1:
 			continue
-		var sign := BoneOrientation.get_limit_sign(bone_name, skeleton)
-		var sign_val = [sign.x, sign.y, sign.z][axis_idx]
+                var sign := _profile.get_mirror(bone_name)
+                var sign_val = [sign.x, sign.y, sign.z][axis_idx]
 		var angle = deg_to_rad(data.get("default_deg", 0.0)) * sign_val
 		var angles: Vector3 = bone_angles.get(bone_name, Vector3.ZERO)
 		if axis_idx == 0:
@@ -413,8 +403,8 @@ func _axis_to_index(axis: String) -> int:
 	return JointConverter.axis_to_index(axis)
 
 func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
-	var order := DOF_ORDER.get(bone, ["x", "y", "z"])
-	var parts := {
+        var order := _profile.get_dof_order(bone)
+        var parts := {
 		"x": Basis(basis.x, angles.x),
 		"y": Basis(basis.y, angles.y),
 		"z": Basis(basis.z, angles.z),
@@ -426,8 +416,8 @@ func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
 
 
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
-	var idx := skeleton.find_bone(bone_name)
-	if idx == -1:
-		return Basis()
-	var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
-	return BoneOrientation.apply_rotations(bone_name, basis, skeleton)
+        var idx := skeleton.find_bone(bone_name)
+        if idx == -1:
+                return Basis()
+        var basis := OrientationBaker.joint_basis_from_skeleton(skeleton, idx)
+        return Basis(_profile.get_pre_quaternion(bone_name)) * basis
