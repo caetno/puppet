@@ -363,6 +363,7 @@ func _apply_all_muscles() -> void:
 		return
 	skeleton.clear_bones_global_pose_override()
 
+
 	var bone_angles := {}
 	for id in _profile.muscles.keys():
 		var data = _profile.muscles[id]
@@ -423,9 +424,10 @@ func _compose_rotation(basis: Basis, angles: Vector3, bone: String) -> Basis:
 		rot = rot * parts[k]
 	return rot
 
+
 func _bone_basis_from_skeleton(bone_name: String, skeleton: Skeleton3D) -> Basis:
-	var idx := skeleton.find_bone(bone_name)
-	if idx == -1:
-		return Basis()
+        var idx := skeleton.find_bone(bone_name)
+        if idx == -1:
+                return Basis()
 	var basis := BoneOrientation.joint_basis_from_skeleton(skeleton, idx)
 	return BoneOrientation.apply_rotations(bone_name, basis, skeleton)
