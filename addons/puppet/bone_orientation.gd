@@ -14,6 +14,23 @@ const DOF_ORDER := {
         "RightUpperLeg": ["x", "z", "y"],
 }
 
+static var _cached := {}
+
+static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
+        if not skeleton:
+                _cached.clear()
+                return
+        _cached = bake(skeleton)
+
+static func get_limit_sign(bone: String, skeleton: Skeleton3D) -> Vector3:
+        var data: Dictionary = _cached.get(bone, {})
+        return data.get("mirror", Vector3.ONE)
+
+static func apply_rotations(bone: String, basis: Basis, skeleton: Skeleton3D) -> Basis:
+        var data: Dictionary = _cached.get(bone, {})
+        var q: Quaternion = data.get("pre_q", Quaternion.IDENTITY)
+        return Basis(q) * basis
+
 ## Bakes orientation data for all bones in `skeleton` and returns it as a
 ## dictionary mapping bone names to orientation info.
 static func bake(skeleton: Skeleton3D) -> Dictionary:

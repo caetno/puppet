@@ -6,61 +6,61 @@ class_name MuscleData
 # Each muscle operates on one of three canonical channels:
 # X = twist around the bone, Y = front/back swing and Z = left/right swing.
 const HUMANOID_BONES := [
-	"Hips",
-	"LeftUpperLeg",
-	"LeftLowerLeg",
-	"LeftFoot",
-	"LeftToes",
-	"RightUpperLeg",
-	"RightLowerLeg",
-	"RightFoot",
-	"RightToes",
-	"Spine",
-	"Chest",
-	"UpperChest",
-	"Neck",
-	"Head",
-	"Jaw",
-	"LeftEye",
-	"RightEye",
-	"LeftShoulder",
-	"LeftUpperArm",
-	"LeftLowerArm",
-	"LeftHand",
-	"LeftThumbMetacarpal",
-	"LeftThumbProximal",
-	"LeftThumbDistal",
-	"LeftIndexProximal",
-	"LeftIndexIntermediate",
-	"LeftIndexDistal",
-	"LeftMiddleProximal",
-	"LeftMiddleIntermediate",
-	"LeftMiddleDistal",
-	"LeftRingProximal",
-	"LeftRingIntermediate",
-	"LeftRingDistal",
-	"LeftLittleProximal",
-	"LeftLittleIntermediate",
-	"LeftLittleDistal",
-	"RightShoulder",
-	"RightUpperArm",
-	"RightLowerArm",
-	"RightHand",
-	"RightThumbMetacarpal",
-	"RightThumbProximal",
-	"RightThumbDistal",
-	"RightIndexProximal",
-	"RightIndexIntermediate",
-	"RightIndexDistal",
-	"RightMiddleProximal",
-	"RightMiddleIntermediate",
-	"RightMiddleDistal",
-	"RightRingProximal",
-	"RightRingIntermediate",
-	"RightRingDistal",
-	"RightLittleProximal",
-	"RightLittleIntermediate",
-	"RightLittleDistal",
+    "Hips",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes",
+    "Spine",
+    "Chest",
+    "UpperChest",
+    "Neck",
+    "Head",
+    "Jaw",
+    "LeftEye",
+    "RightEye",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "LeftThumbMetacarpal",
+    "LeftThumbProximal",
+    "LeftThumbDistal",
+    "LeftIndexProximal",
+    "LeftIndexIntermediate",
+    "LeftIndexDistal",
+    "LeftMiddleProximal",
+    "LeftMiddleIntermediate",
+    "LeftMiddleDistal",
+    "LeftRingProximal",
+    "LeftRingIntermediate",
+    "LeftRingDistal",
+    "LeftLittleProximal",
+    "LeftLittleIntermediate",
+    "LeftLittleDistal",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "RightThumbMetacarpal",
+    "RightThumbProximal",
+    "RightThumbDistal",
+    "RightIndexProximal",
+    "RightIndexIntermediate",
+    "RightIndexDistal",
+    "RightMiddleProximal",
+    "RightMiddleIntermediate",
+    "RightMiddleDistal",
+    "RightRingProximal",
+    "RightRingIntermediate",
+    "RightRingDistal",
+    "RightLittleProximal",
+    "RightLittleIntermediate",
+    "RightLittleDistal",
 ]
 
 # Axis channel semantics:
@@ -128,35 +128,35 @@ const BONE_AXES := {
 
 
 static func _bone_group(bone: String) -> String:
-	if bone.begins_with("Left"):
-		if bone.find("Leg") != -1 or bone.find("Foot") != -1 or bone.find("Toe") != -1:
-			return "Left Leg"
-		if (
-			bone.find("Hand") != -1
-			or bone.find("Thumb") != -1
-			or bone.find("Index") != -1
-			or bone.find("Middle") != -1
-			or bone.find("Ring") != -1
-			or bone.find("Little") != -1
-		):
-			return "Left Hand"
-		return "Left Arm"
-	if bone.begins_with("Right"):
-		if bone.find("Leg") != -1 or bone.find("Foot") != -1 or bone.find("Toe") != -1:
-			return "Right Leg"
-		if (
-			bone.find("Hand") != -1
-			or bone.find("Thumb") != -1
-			or bone.find("Index") != -1
-			or bone.find("Middle") != -1
-			or bone.find("Ring") != -1
-			or bone.find("Little") != -1
-		):
-			return "Right Hand"
-		return "Right Arm"
-	if bone == "Head" or bone == "Jaw" or bone == "Neck" or bone.find("Eye") != -1:
-		return "Head"
-	return "Body"
+    if bone.begins_with("Left"):
+        if bone.find("Leg") != -1 or bone.find("Foot") != -1 or bone.find("Toe") != -1:
+            return "Left Leg"
+        if (
+            bone.find("Hand") != -1
+            or bone.find("Thumb") != -1
+            or bone.find("Index") != -1
+            or bone.find("Middle") != -1
+            or bone.find("Ring") != -1
+            or bone.find("Little") != -1
+        ):
+            return "Left Hand"
+        return "Left Arm"
+    if bone.begins_with("Right"):
+        if bone.find("Leg") != -1 or bone.find("Foot") != -1 or bone.find("Toe") != -1:
+            return "Right Leg"
+        if (
+            bone.find("Hand") != -1
+            or bone.find("Thumb") != -1
+            or bone.find("Index") != -1
+            or bone.find("Middle") != -1
+            or bone.find("Ring") != -1
+            or bone.find("Little") != -1
+        ):
+            return "Right Hand"
+        return "Right Arm"
+    if bone == "Head" or bone == "Jaw" or bone == "Neck" or bone.find("Eye") != -1:
+        return "Head"
+    return "Body"
 
 
 static func _axis_limits(bone: String, channel: String) -> Array:
@@ -273,4 +273,4 @@ static func _build_default_muscles() -> Array:
 
 
 static func default_muscles() -> Array:
-	return _build_default_muscles()
+    return _build_default_muscles()
