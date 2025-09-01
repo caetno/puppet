@@ -13,22 +13,20 @@ static var _limit_signs: Dictionary = {}
 static var _loaded := false
 
 ## Ensures the cached orientation data is loaded from disk.
-static func load_cache(path: String = CACHE_PATH) -> void:
-    if _loaded:
-        return
-    _loaded = true
-    if not FileAccess.file_exists(path):
-        return
-    var file := FileAccess.open(path, FileAccess.READ)
-    if not file:
-        return
-    var json := JSON.new()
-    if json.parse(file.get_as_text()) != OK:
-        return
-    var data: Dictionary = json.data
-    _pre_rotations = _parse_basis_dict(data.get("pre_rotations", {}))
-    _post_rotations = _parse_basis_dict(data.get("post_rotations", {}))
-    _limit_signs = _parse_vector_dict(data.get("limit_signs", {}))
+static func load_cache(path: String = CACHE_PATH, skeleton: Skeleton3D = null) -> void:
+    if not _loaded:
+        _loaded = true
+        if FileAccess.file_exists(path):
+            var file := FileAccess.open(path, FileAccess.READ)
+            if file:
+                var json := JSON.new()
+                if json.parse(file.get_as_text()) == OK:
+                    var data: Dictionary = json.data
+                    _pre_rotations = _parse_basis_dict(data.get("pre_rotations", {}))
+                    _post_rotations = _parse_basis_dict(data.get("post_rotations", {}))
+                    _limit_signs = _parse_vector_dict(data.get("limit_signs", {}))
+    if skeleton:
+        generate_from_skeleton(skeleton)
 
 ## Generates orientation data from a Unity export and saves it to the cache.
 # `unity_json_path` should be a JSON file produced by a Unity editor script that
@@ -48,20 +46,71 @@ static func generate_from_unity(unity_json_path: String, cache_path: String = CA
     _limit_signs = _parse_vector_dict(data.get("limitSigns", data.get("limit_signs", {})))
     _save_cache(cache_path)
 
-static func get_pre_rotation(bone: String) -> Basis:
-    load_cache()
+## Generates orientation data for the bones present in `skeleton`.
+## Results are stored in the static dictionaries, augmenting any cache data.
+static func generate_from_skeleton(skeleton: Skeleton3D) -> void:
+    if not skeleton:
+        return
+    for i in skeleton.get_bone_count():
+        var name := skeleton.get_bone_name(i)
+        if _pre_rotations.has(name) and _post_rotations.has(name) and _limit_signs.has(name):
+            continue
+        var joint_basis := _joint_basis_from_skeleton(skeleton, i)
+        var bone_global := _get_global_rest(skeleton, i)
+        _pre_rotations[name] = bone_global.basis * joint_basis.inverse()
+        _post_rotations[name] = Basis()
+        _limit_signs[name] = Vector3(
+            1.0 if bone_global.basis.x.dot(joint_basis.x) >= 0.0 else -1.0,
+            1.0 if bone_global.basis.y.dot(joint_basis.y) >= 0.0 else -1.0,
+            1.0 if bone_global.basis.z.dot(joint_basis.z) >= 0.0 else -1.0,
+        )
+
+static func get_pre_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
+    load_cache(CACHE_PATH, skeleton)
     return _pre_rotations.get(bone, Basis())
 
-static func get_post_rotation(bone: String) -> Basis:
-    load_cache()
+static func get_post_rotation(bone: String, skeleton: Skeleton3D = null) -> Basis:
+    load_cache(CACHE_PATH, skeleton)
     return _post_rotations.get(bone, Basis())
 
-static func get_limit_sign(bone: String) -> Vector3:
-    load_cache()
+static func get_limit_sign(bone: String, skeleton: Skeleton3D = null) -> Vector3:
+    load_cache(CACHE_PATH, skeleton)
     return _limit_signs.get(bone, Vector3.ONE)
 
-static func apply_rotations(bone: String, basis: Basis) -> Basis:
-    return get_pre_rotation(bone) * basis * get_post_rotation(bone)
+static func apply_rotations(bone: String, basis: Basis, skeleton: Skeleton3D = null) -> Basis:
+    return get_pre_rotation(bone, skeleton) * basis * get_post_rotation(bone, skeleton)
+
+# -- Runtime generation helpers ---------------------------------------------
+
+static func _get_global_rest(skeleton: Skeleton3D, bone: int) -> Transform3D:
+    var t := skeleton.get_bone_rest(bone)
+    var parent := skeleton.get_bone_parent(bone)
+    while parent != -1:
+        t = skeleton.get_bone_rest(parent) * t
+        parent = skeleton.get_bone_parent(parent)
+    return t
+
+static func _joint_basis_from_skeleton(skeleton: Skeleton3D, bone: int) -> Basis:
+    var bone_global := _get_global_rest(skeleton, bone)
+    var z_axis: Vector3 = bone_global.basis.z
+    var child := -1
+    for j in skeleton.get_bone_count():
+        if skeleton.get_bone_parent(j) == bone:
+            child = j
+            break
+    if child != -1:
+        var child_global := _get_global_rest(skeleton, child)
+        var dir := (child_global.origin - bone_global.origin).normalized()
+        if dir.length() > 0.0:
+            z_axis = dir
+    var ref: Vector3 = Vector3.UP
+    if abs(z_axis.dot(ref)) > 0.99:
+        ref = skeleton.global_transform.basis.z
+    var x_axis := ref.cross(z_axis).normalized()
+    if x_axis.length() == 0.0:
+        x_axis = ref.cross(Vector3.RIGHT).normalized()
+    var y_axis := z_axis.cross(x_axis).normalized()
+    return Basis(x_axis, y_axis, z_axis)
 
 # -- Serialization helpers --------------------------------------------------
 
