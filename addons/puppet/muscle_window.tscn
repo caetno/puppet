@@ -25,7 +25,7 @@ size_flags_horizontal = 3
 custom_minimum_size = Vector2(300, 30)
 layout_mode = 2
 size_flags_horizontal = 3
-base_type = "MuscleProfile"
+base_type = "PuppetProfile"
 
 [node name="ResetButton" type="Button" parent="VBox/Top"]
 layout_mode = 2

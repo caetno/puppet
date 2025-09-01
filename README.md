@@ -7,9 +7,9 @@ This project contains a Godot editor plugin that will provide a muscle configura
   - `plugin.gd` / `plugin.cfg` – register the plugin and a toolbar button
   - `muscle_window.tscn` / `muscle_window.gd` – placeholder UI window
   - `muscle_data.gd` – stub muscle definitions
-  - `profile_resource.gd` – resource for storing profiles
+  - `profile_resource.gd` – resource for storing profiles and baked bone data
   - `joint_converter.gd` – conversion and limit application stubs
-  - `bone_orientation.gd` – runtime generation of bone orientation data; the JSON cache is optional and only used as a speed-up for standard rigs
+  - `bone_orientation.gd` – canonical orientation baker for humanoid bones
   - `io.gd` – JSON import/export helpers
 
 Enable the plugin in **Project > Project Settings > Plugins** after opening the project in Godot.
