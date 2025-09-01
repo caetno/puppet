@@ -31,6 +31,10 @@ base_type = "MuscleProfile"
 layout_mode = 2
 text = "Reset Pose"
 
+[node name="RebakeButton" type="Button" parent="VBox/Top"]
+layout_mode = 2
+text = "Rebake"
+
 [node name="Main" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
 size_flags_horizontal = 3

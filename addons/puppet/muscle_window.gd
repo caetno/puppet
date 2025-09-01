@@ -29,6 +29,7 @@ var _model: Node3D
 @onready var _picker: EditorResourcePicker = $VBox/Top/ProfilePicker
 @onready var _tree: Tree = $VBox/Main/Left/Tree
 @onready var _reset_button: Button = $VBox/Top/ResetButton
+@onready var _rebake_button: Button = $VBox/Top/RebakeButton
 
 var _orbiting := false
 var _pivot: Node3D
@@ -50,6 +51,7 @@ func _ready() -> void:
 	close_requested.connect(func(): hide())
 	_setup_picker()
 	_reset_button.pressed.connect(_on_reset_pressed)
+	_rebake_button.pressed.connect(_on_rebake_pressed)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_viewport_container.gui_input.connect(_on_viewport_input)
 	_viewport.world_3d = World3D.new()
@@ -329,6 +331,10 @@ func _on_group_slider_changed(value: float, group_name: String) -> void:
 	_apply_all_muscles()
 
 func _on_reset_pressed() -> void:
+	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+	if skeleton:
+		for i in range(skeleton.get_bone_count()):
+			skeleton.set_bone_local_pose_override(i, Transform3D(), 0.0, false)
 	for id in _profile.muscles.keys():
 		var muscle = _profile.muscles[id]
 		muscle["default_deg"] = 0.0
@@ -339,6 +345,11 @@ func _on_reset_pressed() -> void:
 		_group_sliders[g].set_value_no_signal(0.0)
 	_apply_all_muscles()
 
+func _on_rebake_pressed() -> void:
+	var skeleton := (_model if _model is Skeleton3D else _model.get_node_or_null("Skeleton")) as Skeleton3D
+	if skeleton:
+		BoneOrientation.generate_from_skeleton(skeleton)
+		_apply_all_muscles()
 func _cache_bone_poses() -> void:
 	_base_global_poses.clear()
 	_base_local_poses.clear()
