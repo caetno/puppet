@@ -160,116 +160,116 @@ static func _bone_group(bone: String) -> String:
 
 
 static func _axis_limits(bone: String, channel: String) -> Array:
-        var min_deg := -30.0
-        var max_deg := 30.0
-        # Shoulder and arm
-        if bone.contains("UpperArm") or bone.contains("Shoulder"):
-                match channel:
-                        "X":
-                                min_deg = -80.0
-                                max_deg = 80.0
-                        "Y":
-                                min_deg = -60.0
-                                max_deg = 120.0
-                        "Z":
-                                min_deg = -90.0
-                                max_deg = 90.0
-        # Forearm / elbow
-        elif bone.contains("LowerArm"):
-                match channel:
-                        "X":
-                                min_deg = -180.0
-                                max_deg = 180.0
-                        "Y":
-                                min_deg = 0.0
-                                max_deg = 160.0
-                        "Z":
-                                min_deg = 0.0
-                                max_deg = 0.0
-        # Leg and hip
-        elif bone.contains("UpperLeg") or bone == "Hips":
-                match channel:
-                        "X":
-                                min_deg = -80.0
-                                max_deg = 80.0
-                        "Y":
-                                min_deg = -90.0
-                                max_deg = 90.0
-                        "Z":
-                                min_deg = -90.0
-                                max_deg = 90.0
-        # Knee
-        elif bone.contains("LowerLeg"):
-                match channel:
-                        "X":
-                                min_deg = -180.0
-                                max_deg = 180.0
-                        "Y":
-                                min_deg = 0.0
-                                max_deg = 150.0
-                        "Z":
-                                min_deg = 0.0
-                                max_deg = 0.0
-        # Head and neck
-        elif bone == "Neck" or bone == "Head":
-                match channel:
-                        "X":
-                                min_deg = -80.0
-                                max_deg = 80.0
-                        "Y":
-                                min_deg = -40.0
-                                max_deg = 40.0
-                        "Z":
-                                min_deg = -40.0
-                                max_deg = 40.0
-        # Hands, fingers, toes
-        elif (
-                bone.find("Hand") != -1
-                or bone.find("Thumb") != -1
-                or bone.find("Index") != -1
-                or bone.find("Middle") != -1
-                or bone.find("Ring") != -1
-                or bone.find("Little") != -1
-                or bone.find("Toe") != -1
-        ):
-                match channel:
-                        "X":
-                                min_deg = -180.0
-                                max_deg = 180.0
-                        "Y":
-                                min_deg = 0.0
-                                max_deg = 90.0
-                        "Z":
-                                min_deg = -30.0
-                                max_deg = 30.0
-        elif channel == "X":
-                min_deg = -180.0
-                max_deg = 180.0
-        return [min_deg, 0.0, max_deg]
+	var min_deg := -30.0
+	var max_deg := 30.0
+	# Shoulder and arm
+	if bone.contains("UpperArm") or bone.contains("Shoulder"):
+		match channel:
+			"X":
+				min_deg = -80.0
+				max_deg = 80.0
+			"Y":
+				min_deg = -60.0
+				max_deg = 120.0
+			"Z":
+				min_deg = -90.0
+				max_deg = 90.0
+	# Forearm / elbow
+	elif bone.contains("LowerArm"):
+		match channel:
+			"X":
+				min_deg = -180.0
+				max_deg = 180.0
+			"Y":
+				min_deg = 0.0
+				max_deg = 160.0
+			"Z":
+				min_deg = 0.0
+				max_deg = 0.0
+	# Leg and hip
+	elif bone.contains("UpperLeg") or bone == "Hips":
+		match channel:
+			"X":
+				min_deg = -80.0
+				max_deg = 80.0
+			"Y":
+				min_deg = -90.0
+				max_deg = 90.0
+			"Z":
+				min_deg = -90.0
+				max_deg = 90.0
+	# Knee
+	elif bone.contains("LowerLeg"):
+		match channel:
+			"X":
+				min_deg = -180.0
+				max_deg = 180.0
+			"Y":
+				min_deg = 0.0
+				max_deg = 150.0
+			"Z":
+				min_deg = 0.0
+				max_deg = 0.0
+	# Head and neck
+	elif bone == "Neck" or bone == "Head":
+		match channel:
+			"X":
+				min_deg = -80.0
+				max_deg = 80.0
+			"Y":
+				min_deg = -40.0
+				max_deg = 40.0
+			"Z":
+				min_deg = -40.0
+				max_deg = 40.0
+	# Hands, fingers, toes
+	elif (
+		bone.find("Hand") != -1
+		or bone.find("Thumb") != -1
+		or bone.find("Index") != -1
+		or bone.find("Middle") != -1
+		or bone.find("Ring") != -1
+		or bone.find("Little") != -1
+		or bone.find("Toe") != -1
+	):
+		match channel:
+			"X":
+				min_deg = -180.0
+				max_deg = 180.0
+			"Y":
+				min_deg = 0.0
+				max_deg = 90.0
+			"Z":
+				min_deg = -30.0
+				max_deg = 30.0
+	elif channel == "X":
+		min_deg = -180.0
+		max_deg = 180.0
+	return [min_deg, 0.0, max_deg]
 
 
 static func _build_default_muscles() -> Array:
-        var muscles: Array = []
-        var id := 0
-        for bone in HUMANOID_BONES:
-                var axes: Dictionary = BONE_AXES.get(bone, {"X": "twist"})
-                var group = _bone_group(bone)
-                for channel in axes.keys():
-                        var limits = _axis_limits(bone, channel)
-                        muscles.append(
-                                {
-                                        "muscle_id": id,
-                                        "group": group,
-                                        "bone_ref": bone,
-                                        "axis": channel,
-                                        "min_deg": limits[0],
-                                        "max_deg": limits[2],
-                                        "default_deg": limits[1],
-                                        "enabled": true,
-                                }
-                        )
-                        id += 1
-        return muscles
+	var muscles: Array = []
+	var id := 0
+	for bone in HUMANOID_BONES:
+		var axes: Dictionary = BONE_AXES.get(bone, {"X": "twist"})
+		var group = _bone_group(bone)
+		for channel in axes.keys():
+			var limits = _axis_limits(bone, channel)
+			muscles.append(
+				{
+					"muscle_id": id,
+					"group": group,
+					"bone_ref": bone,
+					"axis": channel,
+					"min_deg": limits[0],
+					"max_deg": limits[2],
+					"default_deg": limits[1],
+					"enabled": true,
+				}
+			)
+			id += 1
+	return muscles
 
 
 static func default_muscles() -> Array:
